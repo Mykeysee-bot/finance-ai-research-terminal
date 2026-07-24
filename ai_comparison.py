@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, Dict
+import os
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -7,7 +8,23 @@ from openai import OpenAI
 
 load_dotenv(Path.cwd() / ".env")
 
-client = OpenAI()
+
+def get_openai_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        try:
+            import streamlit as st
+            api_key = st.secrets.get("OPENAI_API_KEY")
+        except Exception:
+            api_key = None
+
+    if not api_key:
+        raise ValueError(
+            "OPENAI_API_KEY was not found. Add it to Streamlit Secrets."
+        )
+
+    return OpenAI(api_key=api_key)
 
 
 def format_money(value: Any) -> str:
@@ -121,6 +138,8 @@ Rules:
 - Clearly state when an interpretation relies on forward estimates.
 - Keep the report below 500 words.
 """
+
+    client = get_openai_client()
 
     response = client.responses.create(
         model="gpt-5-mini",
