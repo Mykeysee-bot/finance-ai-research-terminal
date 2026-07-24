@@ -1,63 +1,90 @@
 from typing import Any, Dict, Mapping, Optional
 
 
-def _first_value(
+def _first_number(
     data: Mapping[str, Any],
     *keys: str,
 ) -> Optional[float]:
     for key in keys:
         value = data.get(key)
 
-        if isinstance(value, (int, float)):
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
             return float(value)
 
     return None
 
 
 def calculate_dcf(
-    company_data: Mapping[str, Any],
-    growth_rate: float,
-    discount_rate: float,
-    terminal_growth_rate: float,
+    company_data: Optional[Mapping[str, Any]] = None,
+    growth_rate: Optional[float] = None,
+    discount_rate: Optional[float] = None,
+    terminal_growth_rate: Optional[float] = None,
     years: int = 5,
+    *,
+    free_cash_flow: Optional[float] = None,
+    shares_outstanding: Optional[float] = None,
+    total_cash: Optional[float] = None,
+    total_debt: Optional[float] = None,
+    forecast_years: Optional[int] = None,
 ) -> Dict[str, Any]:
-    free_cash_flow = _first_value(
-        company_data,
-        "free_cash_flow",
-        "freeCashflow",
-        "fcf",
-    )
+    """
+    Calculate a discounted cash flow valuation.
 
-    shares_outstanding = _first_value(
-        company_data,
-        "shares_outstanding",
-        "sharesOutstanding",
-        "implied_shares_outstanding",
-    )
+    Supports both:
+    1. A company-data dictionary from app.py
+    2. Separate legacy keyword inputs used by scenario/sensitivity modules
+    """
 
-    total_cash = _first_value(
-        company_data,
-        "total_cash",
-        "totalCash",
-        "cash",
-    )
+    if company_data is not None:
+        free_cash_flow = _first_number(
+            company_data,
+            "free_cash_flow",
+            "freeCashflow",
+            "fcf",
+        )
 
-    total_debt = _first_value(
-        company_data,
-        "total_debt",
-        "totalDebt",
-        "debt",
-    )
+        shares_outstanding = _first_number(
+            company_data,
+            "shares_outstanding",
+            "sharesOutstanding",
+            "implied_shares_outstanding",
+        )
+
+        total_cash = _first_number(
+            company_data,
+            "total_cash",
+            "totalCash",
+            "cash",
+        )
+
+        total_debt = _first_number(
+            company_data,
+            "total_debt",
+            "totalDebt",
+            "debt",
+        )
+
+    if forecast_years is not None:
+        years = int(forecast_years)
 
     if free_cash_flow is None or free_cash_flow <= 0:
         raise ValueError(
-            "Free cash flow is unavailable or not greater than zero."
+            "Free cash flow is unavailable or must be greater than zero."
         )
 
     if shares_outstanding is None or shares_outstanding <= 0:
         raise ValueError(
-            "Shares outstanding are unavailable or not greater than zero."
+            "Shares outstanding are unavailable or must be greater than zero."
         )
+
+    if growth_rate is None:
+        raise ValueError("A growth rate is required.")
+
+    if discount_rate is None:
+        raise ValueError("A discount rate is required.")
+
+    if terminal_growth_rate is None:
+        raise ValueError("A terminal growth rate is required.")
 
     if years <= 0:
         raise ValueError("Projection years must be greater than zero.")
@@ -73,7 +100,7 @@ def calculate_dcf(
     projected_cash_flows = []
     present_values = []
 
-    projected_fcf = free_cash_flow
+    projected_fcf = float(free_cash_flow)
 
     for year in range(1, years + 1):
         projected_fcf *= 1 + growth_rate
@@ -111,11 +138,7 @@ def calculate_dcf(
 
     net_cash = cash - debt
     equity_value = enterprise_value + net_cash
-
-    fair_value_per_share = (
-        equity_value
-        / shares_outstanding
-    )
+    fair_value_per_share = equity_value / shares_outstanding
 
     return {
         "fair_value_per_share": fair_value_per_share,
