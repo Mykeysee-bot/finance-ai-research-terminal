@@ -1661,23 +1661,84 @@ def render_dcf_result(
 
 def render_scenario_result(result: Any) -> None:
     if isinstance(result, pd.DataFrame):
-        st.dataframe(result, use_container_width=True)
-        return
+        scenario_df = result.copy()
 
-    if isinstance(result, Mapping):
+    elif isinstance(result, Mapping):
         rows: list[dict[str, Any]] = []
+
         for scenario_name, scenario_value in result.items():
             if isinstance(scenario_value, Mapping):
-                row = {"Scenario": str(scenario_name).title()}
-                row.update(dict(scenario_value))
+                row = {
+                    "Scenario": str(scenario_name).title(),
+                    "Fair Value per Share": scenario_value.get(
+                        "fair_value_per_share"
+                    ),
+                    "Growth Rate": scenario_value.get("growth_rate"),
+                    "WACC": scenario_value.get("discount_rate"),
+                    "Terminal Growth": scenario_value.get(
+                        "terminal_growth_rate"
+                    ),
+                    "Projection Years": scenario_value.get(
+                        "projection_years"
+                    ),
+                }
             else:
-                row = {"Scenario": str(scenario_name).title(), "Value": scenario_value}
+                row = {
+                    "Scenario": str(scenario_name).title(),
+                    "Fair Value per Share": scenario_value,
+                }
+
             rows.append(row)
 
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        scenario_df = pd.DataFrame(rows)
+
+    else:
+        render_text_result(result)
         return
 
-    render_text_result(result)
+    if scenario_df.empty:
+        st.info("No DCF scenario data was returned.")
+        return
+
+    if "Fair Value per Share" in scenario_df.columns:
+        scenario_df["Fair Value per Share"] = scenario_df[
+            "Fair Value per Share"
+        ].apply(
+            lambda value: (
+                f"${float(value):,.2f}"
+                if is_number(value)
+                else "N/A"
+            )
+        )
+
+    for column in ("Growth Rate", "WACC", "Terminal Growth"):
+        if column in scenario_df.columns:
+            scenario_df[column] = scenario_df[column].apply(
+                lambda value: (
+                    f"{float(value) * 100:.1f}%"
+                    if is_number(value)
+                    else "N/A"
+                )
+            )
+
+    preferred_columns = [
+        column
+        for column in (
+            "Scenario",
+            "Fair Value per Share",
+            "Growth Rate",
+            "WACC",
+            "Terminal Growth",
+            "Projection Years",
+        )
+        if column in scenario_df.columns
+    ]
+
+    st.dataframe(
+        scenario_df[preferred_columns],
+        use_container_width=True,
+        hide_index=True,
+    )
 
 
 def render_sensitivity_result(result: Any) -> None:
