@@ -1,29 +1,62 @@
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Mapping
+import os
 
+from dotenv import load_dotenv
 from openai import OpenAI
 
 
-client = OpenAI()
+load_dotenv(Path.cwd() / ".env")
+
+
+def get_openai_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        try:
+            import streamlit as st
+
+            api_key = st.secrets.get("OPENAI_API_KEY")
+        except Exception:
+            api_key = None
+
+    if not api_key:
+        raise ValueError(
+            "OPENAI_API_KEY was not found. Add it to Streamlit Secrets."
+        )
+
+    return OpenAI(api_key=api_key)
 
 
 def generate_news_analysis(
-    ticker_symbol: str,
-    company_name: str,
-    news_articles: List[Dict[str, Any]],
+    company_data: Mapping[str, Any],
+    news_items: List[Dict[str, Any]],
 ) -> str:
-    if not news_articles:
+    ticker_symbol = str(
+        company_data.get("ticker")
+        or company_data.get("symbol")
+        or "Unknown"
+    )
+
+    company_name = str(
+        company_data.get("company_name")
+        or company_data.get("name")
+        or ticker_symbol
+    )
+
+    if not news_items:
         return "No recent news was available for analysis."
 
     article_text = []
 
-    for index, article in enumerate(news_articles, start=1):
+    for index, article in enumerate(news_items, start=1):
         article_text.append(
             f"""
 Article {index}
 Title: {article.get("title", "N/A")}
-Publisher: {article.get("publisher", "N/A")}
-Date: {article.get("published_at", "N/A")}
-Summary: {article.get("summary", "N/A")}
+Publisher: {article.get("publisher", article.get("source", "N/A"))}
+Date: {article.get("published_at", article.get("published", "N/A"))}
+Summary: {article.get("summary", article.get("description", "N/A"))}
 """
         )
 
@@ -73,9 +106,19 @@ Do not invent information that is not present in the supplied articles.
 Use clear language and short paragraphs.
 """
 
+    client = get_openai_client()
+
     response = client.responses.create(
         model="gpt-5-mini",
         input=prompt,
     )
 
     return response.output_text
+
+
+# Compatibility name for app.py
+def generate_ai_news_analysis(
+    company_data: Mapping[str, Any],
+    news_items: List[Dict[str, Any]],
+) -> str:
+    return generate_news_analysis(company_data, news_items)
