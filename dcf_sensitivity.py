@@ -1,31 +1,59 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, Mapping
 
 from dcf_model import calculate_dcf
 
 
 def calculate_sensitivity_table(
-    data: Dict[str, Any],
-    growth_rates: List[float],
-    discount_rates: List[float],
+    data: Mapping[str, Any],
+    growth_rate: float,
+    discount_rate: float,
     terminal_growth_rate: float,
+    years: int = 5,
 ) -> Dict[str, Dict[str, float]]:
-    table = {}
+    """
+    Create a DCF sensitivity table around the user's base assumptions.
 
-    for growth_rate in growth_rates:
-        growth_label = f"{growth_rate * 100:.0f}% Growth"
+    Rows vary annual FCF growth.
+    Columns vary the discount rate / WACC.
+    """
+
+    growth_rates = [
+        max(growth_rate - 0.04, -0.50),
+        max(growth_rate - 0.02, -0.50),
+        growth_rate,
+        growth_rate + 0.02,
+        growth_rate + 0.04,
+    ]
+
+    discount_rates = [
+        max(discount_rate - 0.02, 0.01),
+        max(discount_rate - 0.01, 0.01),
+        discount_rate,
+        discount_rate + 0.01,
+        discount_rate + 0.02,
+    ]
+
+    table: Dict[str, Dict[str, float]] = {}
+
+    for scenario_growth_rate in growth_rates:
+        growth_label = f"{scenario_growth_rate * 100:.1f}% Growth"
         table[growth_label] = {}
 
-        for discount_rate in discount_rates:
-            discount_label = f"{discount_rate * 100:.1f}% Discount"
+        for scenario_discount_rate in discount_rates:
+            discount_label = (
+                f"{scenario_discount_rate * 100:.1f}% WACC"
+            )
+
+            if scenario_discount_rate <= terminal_growth_rate:
+                table[growth_label][discount_label] = float("nan")
+                continue
 
             result = calculate_dcf(
-                free_cash_flow=data.get("free_cash_flow"),
-                shares_outstanding=data.get("shares_outstanding"),
-                total_cash=data.get("total_cash"),
-                total_debt=data.get("total_debt"),
-                growth_rate=growth_rate,
-                discount_rate=discount_rate,
+                company_data=data,
+                growth_rate=scenario_growth_rate,
+                discount_rate=scenario_discount_rate,
                 terminal_growth_rate=terminal_growth_rate,
+                years=years,
             )
 
             table[growth_label][discount_label] = round(
