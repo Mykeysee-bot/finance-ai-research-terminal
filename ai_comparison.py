@@ -3,7 +3,10 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()
 
 
 def _get_api_key() -> str:
@@ -155,12 +158,16 @@ Write a clear and professional comparison using these sections:
 9. Final investment conclusion
 
 Requirements:
-- Use the supplied financial information when available.
-- Clearly distinguish facts from judgment.
+- Use concise markdown headings.
+- Use bullet points instead of long paragraphs where possible.
+- Format all currency values like $53.17 billion or $4.70 trillion.
+- Never split numbers, currency symbols, or units across lines.
+- Format percentages like 63% and ratios like 3.44x.
+- Do not repeat the same number twice in one sentence.
 - Do not invent missing financial figures.
+- Clearly distinguish facts from judgment.
 - Do not guarantee future returns.
-- Mention when data is unavailable.
-- Keep the explanation useful for an investor and easy to understand.
+- Keep the response under 1,000 words.
 """
 
     client = OpenAI(api_key=_get_api_key())
