@@ -2344,7 +2344,7 @@ with analyst_tab:
             height=420,
         )
 
-        st.plotly_chart(target_chart, use_container_width=True)
+        st.plotly_chart(target_chart, width="stretch")
 
     st.markdown("### Recommendation Consensus")
     render_analyst_rating_summary(analyst_data)
