@@ -1120,34 +1120,53 @@ def render_price_chart(history: pd.DataFrame, ticker: str) -> None:
         st.warning("Price history was not available.")
         return
 
+    chart_data = history.copy()
+    chart_data = chart_data.dropna(subset=["Close"])
+
+    if chart_data.empty:
+        st.warning("Price history was not available.")
+        return
+
     figure = go.Figure()
+
     figure.add_trace(
         go.Scatter(
-            x=history.index,
-            y=history["Close"],
+            x=chart_data.index,
+            y=chart_data["Close"],
             mode="lines",
             name=ticker,
             line={"width": 2.5},
+            hovertemplate=(
+                "<b>%{x|%b %d, %Y}</b><br>"
+                "Close: $%{y:,.2f}<extra></extra>"
+            ),
         )
     )
 
-    if "Volume" in history.columns:
-        figure.update_layout(
-            hovermode="x unified",
-            margin={"l": 10, "r": 10, "t": 25, "b": 10},
-            height=430,
-            xaxis_title="Date",
-            yaxis_title="Price",
-        )
-    else:
-        figure.update_layout(
-            margin={"l": 10, "r": 10, "t": 25, "b": 10},
-            height=430,
-            xaxis_title="Date",
-            yaxis_title="Price",
-        )
+    figure.update_layout(
+        title=f"{ticker} Price History",
+        hovermode="x unified",
+        margin={"l": 10, "r": 10, "t": 55, "b": 10},
+        height=430,
+        xaxis_title="Date",
+        yaxis_title="Price",
+        legend_title_text="Ticker",
+    )
 
-    st.plotly_chart(figure, use_container_width=True)
+    figure.update_xaxes(
+        rangeslider_visible=False,
+        rangeselector={
+            "buttons": [
+                {"count": 1, "label": "1M", "step": "month", "stepmode": "backward"},
+                {"count": 3, "label": "3M", "step": "month", "stepmode": "backward"},
+                {"count": 6, "label": "6M", "step": "month", "stepmode": "backward"},
+                {"count": 1, "label": "1Y", "step": "year", "stepmode": "backward"},
+                {"step": "all", "label": "All"},
+            ]
+        },
+    )
+
+    st.plotly_chart(figure, width="stretch")
 
 
 def render_financial_overview(data: Mapping[str, Any]) -> None:
@@ -1373,7 +1392,7 @@ def render_financial_trends_chart(
     if percent_metrics:
         fig.update_yaxes(ticksuffix="%")
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def render_growth_metrics(trends: pd.DataFrame) -> None:
@@ -1525,7 +1544,7 @@ def render_analyst_rating_summary(data: Mapping[str, Any]) -> None:
                 yaxis_title="Number of Analysts",
                 height=400,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
 
 def render_estimate_dataframe(
@@ -1609,23 +1628,107 @@ def render_news_cards(news_items: Any) -> None:
 
 
 def comparison_to_dataframe(result: Any) -> pd.DataFrame:
-    if isinstance(result, pd.DataFrame):
-        return result
+    def format_comparison_value(metric: str, value: Any) -> Any:
+        if value is None:
+            return "N/A"
 
-    if isinstance(result, Mapping):
-        result_dict = dict(result)
+        if not is_number(value):
+            return value
 
-        if result_dict and all(isinstance(value, Mapping) for value in result_dict.values()):
-            return pd.DataFrame(result_dict).T
+        numeric_value = float(value)
+        metric_lower = metric.lower()
 
-        return pd.DataFrame(
-            [{"Metric": key, "Value": value} for key, value in result_dict.items()]
+        currency_metrics = (
+            "price",
+            "market cap",
+            "enterprise value",
+            "revenue",
+            "net income",
+            "cash",
+            "debt",
+            "free cash flow",
         )
 
-    if isinstance(result, (list, tuple)):
-        return pd.DataFrame(result)
+        percent_metrics = (
+            "margin",
+            "return",
+            "yield",
+            "growth",
+        )
 
-    return pd.DataFrame({"Result": [result]})
+        ratio_metrics = (
+            "p/e",
+            "peg",
+            "ratio",
+            "return on equity",
+        )
+
+        if any(token in metric_lower for token in currency_metrics):
+            if metric_lower == "current price":
+                return format_currency(numeric_value)
+            return format_large_number(numeric_value)
+
+        if any(token in metric_lower for token in percent_metrics):
+            return format_percent(numeric_value)
+
+        if any(token in metric_lower for token in ratio_metrics):
+            return format_number(numeric_value)
+
+        return format_number(numeric_value)
+
+    if isinstance(result, pd.DataFrame):
+        dataframe = result.copy()
+
+    elif isinstance(result, Mapping):
+        result_dict = dict(result)
+
+        if result_dict and all(
+            isinstance(value, Mapping)
+            for value in result_dict.values()
+        ):
+            dataframe = pd.DataFrame(result_dict).T
+        else:
+            dataframe = pd.DataFrame(
+                [
+                    {"Metric": key, "Value": value}
+                    for key, value in result_dict.items()
+                ]
+            )
+
+    elif isinstance(result, (list, tuple)):
+        dataframe = pd.DataFrame(result)
+
+    else:
+        dataframe = pd.DataFrame({"Result": [result]})
+
+    if dataframe.empty:
+        return dataframe
+
+    dataframe = dataframe.reset_index()
+
+    if "index" in dataframe.columns:
+        dataframe = dataframe.rename(columns={"index": "Metric"})
+
+    if "Metric" not in dataframe.columns:
+        dataframe.insert(
+            0,
+            "Metric",
+            [f"Metric {index + 1}" for index in range(len(dataframe))],
+        )
+
+    for column in dataframe.columns:
+        if column == "Metric":
+            continue
+
+        dataframe[column] = [
+            format_comparison_value(metric, value)
+            for metric, value in zip(
+                dataframe["Metric"],
+                dataframe[column],
+            )
+        ]
+
+    return dataframe
 
 
 def extract_fair_value(result: Any) -> Optional[float]:
