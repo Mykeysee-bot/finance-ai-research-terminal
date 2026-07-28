@@ -2514,29 +2514,8 @@ with comparison_tab:
                     "second_scores": second_scores,
                 }
 
-                try:
-                    with st.spinner("Generating AI comparison..."):
-                        ai_result = run_ai_comparison(
-                            first_company,
-                            second_company,
-                            first_scores,
-                            second_scores,
-                        )
-
-                    if isinstance(ai_result, str):
-                        ai_result = ai_result.strip()
-
-                    if ai_result:
-                        st.session_state.ai_comparison_result = ai_result
-                    else:
-                        st.session_state.ai_comparison_result = (
-                            "The AI comparison completed but returned no written analysis."
-                        )
-
-                except Exception as ai_exc:
-                    st.session_state.ai_comparison_result = (
-                        f"AI comparison unavailable: {ai_exc}"
-                    )
+                # Clear the previous AI result when a new pair is compared.
+                st.session_state.ai_comparison_result = None
 
             except Exception as exc:
                 st.error(f"Could not load the financial comparison: {exc}")
@@ -2589,13 +2568,40 @@ with comparison_tab:
                 )
 
         with ai_comparison_tab:
-            ai_comparison_result = st.session_state.ai_comparison_result
+            if st.button(
+                "Generate AI Comparison",
+                type="primary",
+                key="generate_ai_comparison_button",
+            ):
+                try:
+                    with st.spinner("Generating AI investment analysis..."):
+                        ai_result = run_ai_comparison(
+                            first_company,
+                            second_company,
+                            first_scores,
+                            second_scores,
+                        )
 
-            if ai_comparison_result:
-                render_text_result(ai_comparison_result)
+                    if isinstance(ai_result, str):
+                        ai_result = ai_result.strip()
+
+                    if ai_result:
+                        st.session_state.ai_comparison_result = ai_result
+                    else:
+                        st.session_state.ai_comparison_result = (
+                            "The AI comparison completed but returned no written analysis."
+                        )
+
+                except Exception as exc:
+                    st.error(f"Could not generate AI comparison: {exc}")
+
+            if st.session_state.ai_comparison_result:
+                render_text_result(
+                    st.session_state.ai_comparison_result
+                )
             else:
                 st.info(
-                    "Click **Compare Companies** to generate the AI investment comparison."
+                    "Click **Generate AI Comparison** to create an AI investment analysis."
                 )
     else:
         st.info("Enter two tickers and click **Compare Companies**.")
