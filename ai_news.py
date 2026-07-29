@@ -11,66 +11,145 @@ def generate_news_analysis(
     company_name: str,
     news_articles: List[Dict[str, Any]],
 ) -> str:
+    """
+    Generate a professional investor-focused analysis of recent company news.
+    """
+
     if not news_articles:
         return "No recent news was available for analysis."
 
-    article_text = []
+    article_sections = []
 
     for index, article in enumerate(news_articles, start=1):
-        article_text.append(
+        article_sections.append(
             f"""
-Article {index}
+ARTICLE {index}
+
 Title: {article.get("title", "N/A")}
 Publisher: {article.get("publisher", "N/A")}
-Date: {article.get("published_at", "N/A")}
+Published: {article.get("published_at", "N/A")}
 Summary: {article.get("summary", "N/A")}
 """
         )
 
-    combined_articles = "\n".join(article_text)
+    combined_articles = "\n".join(article_sections)
 
     prompt = f"""
-You are an equity research analyst.
+You are a senior equity research analyst preparing an investor-focused
+news intelligence report for {company_name} ({ticker_symbol}).
 
-Analyze the following recent news for {company_name} ({ticker_symbol}).
+Use only the supplied articles. Do not invent events, dates, quotations,
+financial impacts, management commentary, forecasts, competitors, or
+market reactions.
 
-Recent news:
+RECENT ARTICLES
 {combined_articles}
 
-Create a concise investor-focused report using these exact headings:
+Write a professional Markdown report using exactly these headings:
 
-## Recent News Summary
+## Executive News Summary
 
-Summarize the most important developments.
+Summarize the two to four most important developments in concise paragraphs.
+Prioritize developments with the greatest likely relevance to revenue,
+earnings, operations, regulation, valuation, or investor sentiment.
 
-## Bullish Developments
+## Overall News Sentiment
 
-Explain any news that could positively affect revenue, earnings, growth,
-competitive position, or investor sentiment.
+Classify the overall news tone using exactly one of these labels:
 
-## Bearish Developments
+**Bullish**
+**Slightly Bullish**
+**Neutral**
+**Slightly Bearish**
+**Bearish**
 
-Explain any news that could negatively affect the company, including risks,
-competition, regulation, valuation concerns, or operational problems.
+Explain the classification in two to four sentences.
 
-## Investment Impact
+Do not classify sentiment as bullish merely because an article is promotional.
+Separate factual developments from opinion or speculation.
 
-Classify the overall news impact as one of:
+## Positive Catalysts
 
-- Bullish
-- Slightly Bullish
-- Neutral
-- Slightly Bearish
-- Bearish
+Provide two to five bullet points describing developments that may support
+revenue, earnings, margins, growth, competitive positioning, or investor
+sentiment.
+
+For each point:
+- identify the relevant article development,
+- explain why it may matter financially,
+- avoid stating uncertain outcomes as facts.
+
+If the supplied articles contain no credible positive catalyst, state that
+directly.
+
+## Negative Catalysts and Risks
+
+Provide two to five bullet points describing developments that may pressure
+revenue, earnings, margins, operations, regulation, valuation, or sentiment.
+
+Distinguish confirmed developments from potential risks.
+
+If the supplied articles contain no credible negative development, state that
+directly.
+
+## Expected Market Impact
+
+Classify the likely near-term impact using exactly one label:
+
+**High Positive**
+**Moderate Positive**
+**Limited Positive**
+**Neutral**
+**Limited Negative**
+**Moderate Negative**
+**High Negative**
 
 Explain the classification.
 
+Do not predict a specific share-price move. Acknowledge when the likely market
+impact is uncertain or may already be reflected in the stock price.
+
+## Financial Relevance
+
+Explain which financial areas could be affected by the news, such as:
+
+- revenue growth,
+- operating margins,
+- capital spending,
+- free cash flow,
+- balance-sheet risk,
+- valuation expectations.
+
+Use only areas supported by the supplied articles. Do not invent numerical
+effects.
+
 ## What Investors Should Watch
 
-List the most important upcoming issues, announcements, or risks.
+Provide three to five concise bullet points covering the most important
+follow-up items.
 
-Do not invent information that is not present in the supplied articles.
-Use clear language and short paragraphs.
+Only include future events, milestones, disclosures, or risks that are
+reasonably supported by the article content. Do not invent dates or events.
+
+## Investor Takeaway
+
+Provide a balanced conclusion in no more than 120 words.
+
+Summarize:
+- the dominant news signal,
+- the most important positive factor,
+- the most important risk,
+- whether the news materially changes the investment case.
+
+ADDITIONAL RULES
+
+- Keep the full report below 700 words.
+- Use concise, professional language.
+- Explain why developments matter instead of only repeating headlines.
+- Do not provide personalized financial advice.
+- Do not use LaTeX.
+- Do not fabricate facts to fill missing information.
+- State clearly when the article set is insufficient for a strong conclusion.
 """
 
     response = client.responses.create(
@@ -78,4 +157,11 @@ Use clear language and short paragraphs.
         input=prompt,
     )
 
-    return response.output_text
+    result = response.output_text.strip()
+
+    if not result:
+        raise RuntimeError(
+            "The news-analysis model returned an empty response."
+        )
+
+    return result

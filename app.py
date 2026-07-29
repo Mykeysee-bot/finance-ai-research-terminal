@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 
 import inspect
 import importlib
@@ -305,23 +306,237 @@ def module_status_table() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def render_structured_markdown(report: str) -> None:
+    """
+    Render an AI-generated Markdown report as professional research cards.
+    """
+    import re
+
+    cleaned_report = report.strip()
+
+    if not cleaned_report:
+        st.info("The module completed but returned no written analysis.")
+        return
+
+    icon_map = {
+        "executive news summary": "📰",
+        "executive summary": "📋",
+        "investment summary": "📋",
+        "investment thesis": "🎯",
+        "business overview": "🏢",
+        "company overview": "🏢",
+        "financial strengths": "💪",
+        "financial strength": "💪",
+        "financial quality": "💪",
+        "financial relevance": "💵",
+        "profitability": "📊",
+        "balance sheet": "🏦",
+        "cash flow": "💵",
+        "valuation assessment": "💰",
+        "valuation": "💰",
+        "bull case": "📈",
+        "bear case": "📉",
+        "negative catalysts and risks": "⚠️",
+        "negative catalysts": "⚠️",
+        "positive catalysts": "🚀",
+        "growth catalysts": "🚀",
+        "growth drivers": "🚀",
+        "key risks": "⚠️",
+        "risks": "⚠️",
+        "expected market impact": "📉",
+        "market impact": "📉",
+        "what investors should watch": "👀",
+        "investor takeaway": "🎯",
+        "investment outlook": "🔭",
+        "overall assessment": "🎯",
+        "bottom line": "✅",
+        "key takeaways": "🔑",
+        "recommendation": "🧭",
+        "overall news sentiment": "📊",
+        "news sentiment": "📊",
+        "sentiment": "📊",
+        "comparison summary": "⚖️",
+        "catalysts": "🚀",
+    }
+
+    heading_pattern = re.compile(
+        r"(?m)^##\s+(.+?)\s*$"
+    )
+    matches = list(heading_pattern.finditer(cleaned_report))
+
+    if not matches:
+        with st.container(border=True):
+            st.markdown(cleaned_report)
+        return
+
+    preamble = cleaned_report[:matches[0].start()].strip()
+
+    if preamble:
+        with st.container(border=True):
+            st.markdown(preamble)
+
+    for index, match in enumerate(matches):
+        heading = match.group(1).strip().replace("**", "")
+        content_start = match.end()
+        content_end = (
+            matches[index + 1].start()
+            if index + 1 < len(matches)
+            else len(cleaned_report)
+        )
+        section_content = cleaned_report[
+            content_start:content_end
+        ].strip()
+
+        normalized_heading = re.sub(
+            r"[^a-z0-9 ]",
+            "",
+            heading.lower(),
+        ).strip()
+
+        icon = icon_map.get(normalized_heading, "▪️")
+
+        if icon == "▪️":
+            ordered_icon_matches = sorted(
+                icon_map.items(),
+                key=lambda item: len(item[0]),
+                reverse=True,
+            )
+
+            for keyword, mapped_icon in ordered_icon_matches:
+                if keyword in normalized_heading:
+                    icon = mapped_icon
+                    break
+
+        with st.container(border=True):
+            st.markdown(f"### {icon} {heading}")
+
+            if section_content:
+                st.markdown(section_content)
+            else:
+                st.caption(
+                    "No additional detail was returned for this section."
+                )
+
+
 def render_text_result(result: Any) -> None:
     if result is None:
-        st.info("The module completed but returned no displayable result.")
+        st.info(
+            "The module completed but returned no displayable result."
+        )
+
     elif isinstance(result, str):
-        st.markdown(result)
+        cleaned_result = result.strip()
+
+        if not cleaned_result:
+            st.info(
+                "The module completed but returned no written analysis."
+            )
+            return
+
+        render_structured_markdown(cleaned_result)
+
+        st.download_button(
+            label="Download Report",
+            data=cleaned_result.encode("utf-8"),
+            file_name="finance_ai_research_report.md",
+            mime="text/markdown",
+            key=f"download_text_report_{abs(hash(cleaned_result))}",
+        )
+
     elif isinstance(result, pd.DataFrame):
-        st.dataframe(result, use_container_width=True)
+        st.dataframe(
+            result,
+            width="stretch",
+        )
+
     elif isinstance(result, Mapping):
         st.json(dict(result))
+
     elif isinstance(result, (list, tuple)):
         if all(isinstance(item, Mapping) for item in result):
-            st.dataframe(pd.DataFrame(result), use_container_width=True)
+            st.dataframe(
+                pd.DataFrame(result),
+                width="stretch",
+            )
         else:
             for item in result:
                 st.write(item)
+
     else:
         st.write(result)
+
+
+def render_news_cards(news_items: Any) -> None:
+    """
+    Render recent company news as clean, investor-focused article cards.
+    """
+    if not isinstance(news_items, (list, tuple)) or not news_items:
+        st.info("No recent company news was available.")
+        return
+
+    valid_articles = [
+        article
+        for article in news_items
+        if isinstance(article, Mapping)
+        and str(article.get("title", "")).strip()
+    ]
+
+    if not valid_articles:
+        st.info("No displayable company news articles were returned.")
+        return
+
+    st.caption(
+        f"Showing {len(valid_articles)} recent article"
+        f"{'' if len(valid_articles) == 1 else 's'}."
+    )
+
+    for index, article in enumerate(valid_articles, start=1):
+        title = str(
+            article.get("title")
+            or "Untitled Article"
+        ).strip()
+
+        publisher = str(
+            article.get("publisher")
+            or "Unknown Publisher"
+        ).strip()
+
+        published_at = str(
+            article.get("published_at")
+            or "Date unavailable"
+        ).strip()
+
+        summary = str(
+            article.get("summary")
+            or "No summary available."
+        ).strip()
+
+        link = article.get("link")
+
+        with st.container(border=True):
+            st.markdown(f"### {title}")
+
+            metadata_columns = st.columns(
+                [1.2, 1.5, 0.7]
+            )
+
+            with metadata_columns[0]:
+                st.caption(f"**Source:** {publisher}")
+
+            with metadata_columns[1]:
+                st.caption(f"**Published:** {published_at}")
+
+            with metadata_columns[2]:
+                st.caption(f"**Article {index}**")
+
+            st.markdown(summary)
+
+            if isinstance(link, str) and link.strip():
+                st.link_button(
+                    "Read Full Article",
+                    link.strip(),
+                    width="content",
+                )
 
 
 # =============================================================================
@@ -673,7 +888,17 @@ def get_news_items(ticker: str, company_data: Mapping[str, Any]) -> Any:
             "company_news.py loaded, but no supported news-fetching function was found."
         )
 
-    company_name = first_present(company_data, "company_name", "name", default=ticker)
+    company_name = str(
+        first_present(
+            company_data,
+            "company_name",
+            "longName",
+            "shortName",
+            "name",
+            default=ticker,
+        )
+    ).strip()
+
     context = {
         "ticker": ticker,
         "ticker_symbol": ticker,
@@ -682,12 +907,17 @@ def get_news_items(ticker: str, company_data: Mapping[str, Any]) -> Any:
         "company_data": company_data,
         "stock_data": company_data,
         "company_name": company_name,
+        "limit": 8,
     }
 
     return call_compatible(
         function,
         context,
-        positional_attempts=((ticker,), (company_name,), (ticker, company_name)),
+        positional_attempts=(
+            (ticker,),
+            (ticker, 8),
+            (ticker, 8, company_name),
+        ),
     )
 
 
@@ -914,6 +1144,595 @@ def run_ai_comparison(
         ),
     )
 
+
+
+def render_dcf_result(
+    result: Mapping[str, Any],
+    current_price: Any = None,
+    title: str = "DCF Valuation",
+) -> None:
+    """Render a professional base-case DCF valuation."""
+
+    if not isinstance(result, Mapping) or not result:
+        st.info("No DCF valuation result is available.")
+        return
+
+    def safe_float(value: Any) -> Optional[float]:
+        try:
+            number = float(value)
+
+            if number == number:
+                return number
+        except (TypeError, ValueError):
+            pass
+
+        return None
+
+    def format_currency(value: Any) -> str:
+        number = safe_float(value)
+
+        if number is None:
+            return "N/A"
+
+        absolute_value = abs(number)
+
+        if absolute_value >= 1_000_000_000_000:
+            return f"${number / 1_000_000_000_000:,.2f}T"
+
+        if absolute_value >= 1_000_000_000:
+            return f"${number / 1_000_000_000:,.2f}B"
+
+        if absolute_value >= 1_000_000:
+            return f"${number / 1_000_000:,.2f}M"
+
+        return f"${number:,.2f}"
+
+    fair_value = safe_float(result.get("fair_value_per_share"))
+    market_price = safe_float(current_price)
+
+    upside_downside = None
+
+    if (
+        fair_value is not None
+        and market_price is not None
+        and market_price > 0
+    ):
+        upside_downside = (
+            fair_value / market_price - 1
+        ) * 100
+
+    if upside_downside is None:
+        valuation_status = "Price Unavailable"
+    elif upside_downside >= 20:
+        valuation_status = "Potentially Undervalued"
+    elif upside_downside >= 5:
+        valuation_status = "Moderately Undervalued"
+    elif upside_downside > -5:
+        valuation_status = "Approximately Fair Value"
+    elif upside_downside > -20:
+        valuation_status = "Moderately Overvalued"
+    else:
+        valuation_status = "Potentially Overvalued"
+
+    st.subheader(title)
+
+    metric_columns = st.columns(4)
+
+    metric_columns[0].metric(
+        "Intrinsic Value",
+        format_currency(fair_value),
+    )
+
+    metric_columns[1].metric(
+        "Current Price",
+        format_currency(market_price),
+    )
+
+    metric_columns[2].metric(
+        "Upside / Downside",
+        (
+            f"{upside_downside:+.1f}%"
+            if upside_downside is not None
+            else "N/A"
+        ),
+    )
+
+    metric_columns[3].metric(
+        "Valuation View",
+        valuation_status,
+    )
+
+    if upside_downside is None:
+        st.info(
+            "Valuation comparison unavailable because a current market "
+            "price could not be retrieved."
+        )
+    elif upside_downside >= 5:
+        st.success(
+            f"DCF Valuation Signal: {valuation_status} — "
+            f"estimated intrinsic value implies {upside_downside:+.1f}% "
+            f"upside versus the current market price."
+        )
+    elif upside_downside > -5:
+        st.warning(
+            f"DCF Valuation Signal: {valuation_status} — "
+            f"estimated intrinsic value is within 5% of the current "
+            f"market price."
+        )
+    else:
+        st.error(
+            f"DCF Valuation Signal: {valuation_status} — "
+            f"estimated intrinsic value implies {upside_downside:+.1f}% "
+            f"downside versus the current market price."
+        )
+
+    if market_price is None:
+        st.caption(
+            "Current market price was unavailable, so implied upside or "
+            "downside could not be calculated."
+        )
+
+    st.markdown("#### Core Assumptions")
+
+    assumption_columns = st.columns(4)
+
+    growth_rate = safe_float(result.get("growth_rate"))
+    discount_rate = safe_float(result.get("discount_rate"))
+    terminal_growth_rate = safe_float(
+        result.get("terminal_growth_rate")
+    )
+    forecast_years = result.get("forecast_years")
+
+    assumption_columns[0].metric(
+        "FCF Growth",
+        (
+            f"{growth_rate * 100:.1f}%"
+            if growth_rate is not None
+            else "N/A"
+        ),
+    )
+
+    assumption_columns[1].metric(
+        "Discount Rate / WACC",
+        (
+            f"{discount_rate * 100:.1f}%"
+            if discount_rate is not None
+            else "N/A"
+        ),
+    )
+
+    assumption_columns[2].metric(
+        "Terminal Growth",
+        (
+            f"{terminal_growth_rate * 100:.1f}%"
+            if terminal_growth_rate is not None
+            else "N/A"
+        ),
+    )
+
+    assumption_columns[3].metric(
+        "Projection Period",
+        (
+            f"{int(forecast_years)} Years"
+            if safe_float(forecast_years) is not None
+            else "N/A"
+        ),
+    )
+
+    projected_cash_flows = result.get(
+        "projected_cash_flows",
+        [],
+    )
+    present_values = result.get(
+        "present_values",
+        [],
+    )
+
+    if isinstance(projected_cash_flows, (list, tuple)):
+        forecast_rows = []
+
+        for index, projected_fcf in enumerate(
+            projected_cash_flows,
+            start=1,
+        ):
+            present_value = (
+                present_values[index - 1]
+                if isinstance(present_values, (list, tuple))
+                and index - 1 < len(present_values)
+                else None
+            )
+
+            discount_factor = None
+            projected_number = safe_float(projected_fcf)
+            present_number = safe_float(present_value)
+
+            if (
+                projected_number is not None
+                and present_number is not None
+                and projected_number != 0
+            ):
+                discount_factor = (
+                    present_number / projected_number
+                )
+
+            forecast_rows.append(
+                {
+                    "Forecast Year": f"Year {index}",
+                    "Projected Free Cash Flow": projected_number,
+                    "Present Value": present_number,
+                    "PV as % of FCF": (
+                        discount_factor * 100
+                        if discount_factor is not None
+                        else None
+                    ),
+                }
+            )
+
+        if forecast_rows:
+            st.markdown("#### Free Cash Flow Forecast")
+
+            forecast_df = pd.DataFrame(forecast_rows)
+
+            st.dataframe(
+                forecast_df.style.format(
+                    {
+                        "Projected Free Cash Flow": format_currency,
+                        "Present Value": format_currency,
+                        "PV as % of FCF": lambda value: (
+                            f"{value:.1f}%"
+                            if pd.notna(value)
+                            else "N/A"
+                        ),
+                    }
+                ),
+                hide_index=True,
+                width="stretch",
+            )
+
+            st.download_button(
+                "Download DCF Forecast",
+                data=forecast_df.to_csv(
+                    index=False
+                ).encode("utf-8"),
+                file_name="dcf_forecast.csv",
+                mime="text/csv",
+                key="download_dcf_forecast",
+            )
+
+    st.markdown("#### Valuation Bridge")
+
+    valuation_rows = [
+        {
+            "Valuation Component": "PV of Forecast Cash Flows",
+            "Value": safe_float(
+                result.get(
+                    "present_value_of_forecast_cash_flows"
+                )
+            ),
+        },
+        {
+            "Valuation Component": "PV of Terminal Value",
+            "Value": safe_float(
+                result.get("discounted_terminal_value")
+            ),
+        },
+        {
+            "Valuation Component": "Enterprise Value",
+            "Value": safe_float(
+                result.get("enterprise_value")
+            ),
+        },
+        {
+            "Valuation Component": "Cash",
+            "Value": safe_float(result.get("total_cash")),
+        },
+        {
+            "Valuation Component": "Debt",
+            "Value": safe_float(result.get("total_debt")),
+        },
+        {
+            "Valuation Component": "Net Cash / (Debt)",
+            "Value": safe_float(result.get("net_cash")),
+        },
+        {
+            "Valuation Component": "Equity Value",
+            "Value": safe_float(result.get("equity_value")),
+        },
+        {
+            "Valuation Component": "Fair Value per Share",
+            "Value": fair_value,
+        },
+    ]
+
+    valuation_df = pd.DataFrame(valuation_rows)
+
+    st.dataframe(
+        valuation_df.style.format(
+            {"Value": format_currency}
+        ),
+        hide_index=True,
+        width="stretch",
+    )
+
+    enterprise_value = safe_float(
+        result.get("enterprise_value")
+    )
+    discounted_terminal_value = safe_float(
+        result.get("discounted_terminal_value")
+    )
+
+    terminal_value_share = None
+
+    if (
+        enterprise_value is not None
+        and enterprise_value > 0
+        and discounted_terminal_value is not None
+    ):
+        terminal_value_share = (
+            discounted_terminal_value
+            / enterprise_value
+            * 100
+        )
+
+    if terminal_value_share is not None:
+        st.caption(
+            f"Terminal value represents "
+            f"{terminal_value_share:.1f}% of estimated enterprise value."
+        )
+
+        if terminal_value_share >= 75:
+            st.warning(
+                "A large portion of this valuation comes from terminal "
+                "value. The result is therefore highly sensitive to the "
+                "discount-rate and terminal-growth assumptions."
+            )
+
+    st.caption(
+        "DCF estimates are assumption-sensitive and should be evaluated "
+        "alongside comparable-company valuation, financial quality, "
+        "industry conditions, and company-specific risks."
+    )
+
+
+def render_scenario_result(result: Any) -> None:
+    """Render bull, base, and bear DCF scenarios."""
+
+    if not isinstance(result, Mapping) or not result:
+        st.info("No DCF scenario results are available.")
+        return
+
+    def safe_float(value: Any) -> Optional[float]:
+        try:
+            number = float(value)
+
+            if number == number:
+                return number
+        except (TypeError, ValueError):
+            pass
+
+        return None
+
+    scenario_rows = []
+
+    preferred_order = ("Bear", "Base", "Bull")
+
+    ordered_names = [
+        name for name in preferred_order
+        if name in result
+    ]
+
+    ordered_names.extend(
+        name for name in result
+        if name not in ordered_names
+    )
+
+    for scenario_name in ordered_names:
+        scenario = result.get(scenario_name)
+
+        if not isinstance(scenario, Mapping):
+            continue
+
+        assumptions = scenario.get("assumptions", {})
+
+        if not isinstance(assumptions, Mapping):
+            assumptions = {}
+
+        growth_rate = safe_float(
+            assumptions.get(
+                "growth_rate",
+                scenario.get("growth_rate"),
+            )
+        )
+        discount_rate = safe_float(
+            assumptions.get(
+                "discount_rate",
+                scenario.get("discount_rate"),
+            )
+        )
+        terminal_growth_rate = safe_float(
+            assumptions.get(
+                "terminal_growth_rate",
+                scenario.get("terminal_growth_rate"),
+            )
+        )
+
+        scenario_rows.append(
+            {
+                "Scenario": scenario_name,
+                "FCF Growth": (
+                    growth_rate * 100
+                    if growth_rate is not None
+                    else None
+                ),
+                "WACC": (
+                    discount_rate * 100
+                    if discount_rate is not None
+                    else None
+                ),
+                "Terminal Growth": (
+                    terminal_growth_rate * 100
+                    if terminal_growth_rate is not None
+                    else None
+                ),
+                "Enterprise Value": safe_float(
+                    scenario.get("enterprise_value")
+                ),
+                "Equity Value": safe_float(
+                    scenario.get("equity_value")
+                ),
+                "Fair Value per Share": safe_float(
+                    scenario.get("fair_value_per_share")
+                ),
+            }
+        )
+
+    if not scenario_rows:
+        st.info("No displayable DCF scenario results were returned.")
+        return
+
+    scenario_df = pd.DataFrame(scenario_rows)
+
+    metric_columns = st.columns(len(scenario_rows))
+
+    for column, row in zip(
+        metric_columns,
+        scenario_rows,
+    ):
+        fair_value = row.get("Fair Value per Share")
+
+        column.metric(
+            f"{row['Scenario']} Case",
+            (
+                f"${fair_value:,.2f}"
+                if fair_value is not None
+                else "N/A"
+            ),
+        )
+
+    st.dataframe(
+        scenario_df.style.format(
+            {
+                "FCF Growth": lambda value: (
+                    f"{value:.1f}%"
+                    if pd.notna(value)
+                    else "N/A"
+                ),
+                "WACC": lambda value: (
+                    f"{value:.1f}%"
+                    if pd.notna(value)
+                    else "N/A"
+                ),
+                "Terminal Growth": lambda value: (
+                    f"{value:.1f}%"
+                    if pd.notna(value)
+                    else "N/A"
+                ),
+                "Enterprise Value": lambda value: (
+                    f"${value / 1_000_000_000:,.2f}B"
+                    if pd.notna(value)
+                    else "N/A"
+                ),
+                "Equity Value": lambda value: (
+                    f"${value / 1_000_000_000:,.2f}B"
+                    if pd.notna(value)
+                    else "N/A"
+                ),
+                "Fair Value per Share": lambda value: (
+                    f"${value:,.2f}"
+                    if pd.notna(value)
+                    else "N/A"
+                ),
+            }
+        ),
+        hide_index=True,
+        width="stretch",
+    )
+
+    st.download_button(
+        "Download Scenario Analysis",
+        data=scenario_df.to_csv(
+            index=False
+        ).encode("utf-8"),
+        file_name="dcf_scenarios.csv",
+        mime="text/csv",
+        key="download_dcf_scenarios",
+    )
+
+    st.caption(
+        "Scenario values are not price targets. They illustrate how changes "
+        "in growth, WACC, and terminal-growth assumptions affect estimated "
+        "intrinsic value."
+    )
+
+
+def render_sensitivity_result(result: Any) -> None:
+    """Render and export a DCF sensitivity matrix."""
+
+    if result is None:
+        st.info("No DCF sensitivity result is available.")
+        return
+
+    if isinstance(result, pd.DataFrame):
+        sensitivity_df = result.copy()
+    elif isinstance(result, Mapping):
+        try:
+            sensitivity_df = pd.DataFrame(result)
+        except Exception:
+            st.write(result)
+            return
+    else:
+        st.write(result)
+        return
+
+    if sensitivity_df.empty:
+        st.info("The DCF sensitivity table is empty.")
+        return
+
+    display_df = sensitivity_df.copy()
+
+    value_columns = [
+        column
+        for column in display_df.columns
+        if column != "FCF Growth"
+    ]
+
+    def format_sensitivity_value(value: Any) -> str:
+        try:
+            number = float(value)
+
+            if number == number:
+                return f"${number:,.2f}"
+        except (TypeError, ValueError):
+            pass
+
+        return "N/A"
+
+    formatters = {
+        column: format_sensitivity_value
+        for column in value_columns
+    }
+
+    st.dataframe(
+        display_df.style.format(formatters),
+        hide_index=True,
+        width="stretch",
+    )
+
+    st.caption(
+        "Rows vary projected free-cash-flow growth. Columns vary WACC. "
+        "Higher growth and lower WACC generally produce higher estimated "
+        "intrinsic value."
+    )
+
+    st.download_button(
+        "Download Sensitivity Table",
+        data=sensitivity_df.to_csv(
+            index=False
+        ).encode("utf-8"),
+        file_name="dcf_sensitivity.csv",
+        mime="text/csv",
+        key="download_dcf_sensitivity",
+    )
 
 def run_dcf(
     company_data: Mapping[str, Any],
@@ -1267,16 +2086,251 @@ def render_financial_overview(data: Mapping[str, Any]) -> None:
         )
 
 
-def format_statement_value(value: Any) -> Any:
+
+STATEMENT_LABELS = {
+    "TotalRevenue": "Revenue",
+    "OperatingRevenue": "Operating Revenue",
+    "CostOfRevenue": "Cost of Revenue",
+    "ReconciledCostOfRevenue": "Cost of Revenue",
+    "GrossProfit": "Gross Profit",
+    "OperatingExpense": "Operating Expenses",
+    "SellingGeneralAndAdministration": "SG&A Expense",
+    "ResearchAndDevelopment": "Research & Development",
+    "OperatingIncome": "Operating Income",
+    "TotalOperatingIncomeAsReported": "Reported Operating Income",
+    "EBIT": "EBIT",
+    "EBITDA": "EBITDA",
+    "NormalizedEBITDA": "Normalized EBITDA",
+    "InterestIncome": "Interest Income",
+    "InterestExpense": "Interest Expense",
+    "NetInterestIncome": "Net Interest Income",
+    "PretaxIncome": "Pre-Tax Income",
+    "TaxProvision": "Income Tax Expense",
+    "NetIncome": "Net Income",
+    "NetIncomeCommonStockholders": "Net Income to Common Shareholders",
+    "NetIncomeContinuousOperations": "Net Income from Continuing Operations",
+    "BasicEPS": "Basic EPS",
+    "DilutedEPS": "Diluted EPS",
+    "BasicAverageShares": "Basic Weighted-Average Shares",
+    "DilutedAverageShares": "Diluted Weighted-Average Shares",
+
+    "TotalAssets": "Total Assets",
+    "CurrentAssets": "Current Assets",
+    "CashAndCashEquivalents": "Cash & Cash Equivalents",
+    "CashCashEquivalentsAndShortTermInvestments":
+        "Cash & Short-Term Investments",
+    "AccountsReceivable": "Accounts Receivable",
+    "Inventory": "Inventory",
+    "NetPPE": "Property, Plant & Equipment",
+    "GoodwillAndOtherIntangibleAssets": "Goodwill & Intangible Assets",
+    "TotalLiabilitiesNetMinorityInterest": "Total Liabilities",
+    "CurrentLiabilities": "Current Liabilities",
+    "AccountsPayable": "Accounts Payable",
+    "CurrentDebt": "Current Debt",
+    "LongTermDebt": "Long-Term Debt",
+    "TotalDebt": "Total Debt",
+    "StockholdersEquity": "Shareholders' Equity",
+    "TotalEquityGrossMinorityInterest": "Total Equity",
+    "RetainedEarnings": "Retained Earnings",
+    "WorkingCapital": "Working Capital",
+    "OrdinarySharesNumber": "Shares Outstanding",
+
+    "OperatingCashFlow": "Operating Cash Flow",
+    "CashFlowFromContinuingOperatingActivities":
+        "Cash Flow from Operating Activities",
+    "InvestingCashFlow": "Investing Cash Flow",
+    "CashFlowFromContinuingInvestingActivities":
+        "Cash Flow from Investing Activities",
+    "FinancingCashFlow": "Financing Cash Flow",
+    "CashFlowFromContinuingFinancingActivities":
+        "Cash Flow from Financing Activities",
+    "CapitalExpenditure": "Capital Expenditures",
+    "FreeCashFlow": "Free Cash Flow",
+    "RepurchaseOfCapitalStock": "Share Repurchases",
+    "CashDividendsPaid": "Dividends Paid",
+    "CommonStockDividendPaid": "Common Dividends Paid",
+    "IssuanceOfDebt": "Debt Issued",
+    "RepaymentOfDebt": "Debt Repaid",
+    "BeginningCashPosition": "Beginning Cash Balance",
+    "EndCashPosition": "Ending Cash Balance",
+    "ChangesInCash": "Net Change in Cash",
+}
+
+
+PRIMARY_STATEMENT_ROWS = {
+    "Income Statement": [
+        "TotalRevenue",
+        "CostOfRevenue",
+        "GrossProfit",
+        "ResearchAndDevelopment",
+        "SellingGeneralAndAdministration",
+        "OperatingExpense",
+        "OperatingIncome",
+        "EBIT",
+        "EBITDA",
+        "InterestIncome",
+        "InterestExpense",
+        "PretaxIncome",
+        "TaxProvision",
+        "NetIncome",
+        "NetIncomeCommonStockholders",
+        "BasicEPS",
+        "DilutedEPS",
+        "BasicAverageShares",
+        "DilutedAverageShares",
+    ],
+    "Balance Sheet": [
+        "CashCashEquivalentsAndShortTermInvestments",
+        "CashAndCashEquivalents",
+        "AccountsReceivable",
+        "Inventory",
+        "CurrentAssets",
+        "NetPPE",
+        "GoodwillAndOtherIntangibleAssets",
+        "TotalAssets",
+        "AccountsPayable",
+        "CurrentDebt",
+        "CurrentLiabilities",
+        "LongTermDebt",
+        "TotalDebt",
+        "TotalLiabilitiesNetMinorityInterest",
+        "RetainedEarnings",
+        "StockholdersEquity",
+        "TotalEquityGrossMinorityInterest",
+        "WorkingCapital",
+        "OrdinarySharesNumber",
+    ],
+    "Cash Flow Statement": [
+        "OperatingCashFlow",
+        "CashFlowFromContinuingOperatingActivities",
+        "CapitalExpenditure",
+        "FreeCashFlow",
+        "InvestingCashFlow",
+        "CashFlowFromContinuingInvestingActivities",
+        "FinancingCashFlow",
+        "CashFlowFromContinuingFinancingActivities",
+        "RepurchaseOfCapitalStock",
+        "CashDividendsPaid",
+        "CommonStockDividendPaid",
+        "IssuanceOfDebt",
+        "RepaymentOfDebt",
+        "BeginningCashPosition",
+        "ChangesInCash",
+        "EndCashPosition",
+    ],
+}
+
+
+def humanize_statement_label(value: Any) -> str:
+    raw_label = str(value)
+
+    if raw_label in STATEMENT_LABELS:
+        return STATEMENT_LABELS[raw_label]
+
+    readable = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", raw_label)
+    readable = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", readable)
+    readable = readable.replace("And", "and")
+    return readable.strip()
+
+
+def format_compact_statement_number(
+    value: float,
+    currency: bool = True,
+) -> str:
+    absolute_value = abs(value)
+
+    if absolute_value >= 1_000_000_000_000:
+        formatted = f"{absolute_value / 1_000_000_000_000:.2f}T"
+    elif absolute_value >= 1_000_000_000:
+        formatted = f"{absolute_value / 1_000_000_000:.2f}B"
+    elif absolute_value >= 1_000_000:
+        formatted = f"{absolute_value / 1_000_000:.2f}M"
+    elif absolute_value >= 1_000:
+        formatted = f"{absolute_value / 1_000:.2f}K"
+    else:
+        formatted = f"{absolute_value:,.0f}"
+
+    prefix = "$" if currency else ""
+    result = f"{prefix}{formatted}"
+
+    if value < 0:
+        return f"({result})"
+
+    return result
+
+
+def format_statement_value(line_item: str, value: Any) -> Any:
     if pd.isna(value):
         return ""
-    if is_number(value):
-        return f"{float(value):,.0f}"
-    return value
+
+    if not is_number(value):
+        return str(value)
+
+    numeric_value = float(value)
+    normalized_item = line_item.lower()
+
+    if "eps" in normalized_item:
+        return f"{numeric_value:.2f}"
+
+    if "share" in normalized_item:
+        return format_compact_statement_number(
+            numeric_value,
+            currency=False,
+        )
+
+    if "tax rate" in normalized_item:
+        percent_value = (
+            numeric_value * 100
+            if abs(numeric_value) <= 1
+            else numeric_value
+        )
+        return f"{percent_value:.1f}%"
+
+    return format_compact_statement_number(numeric_value)
 
 
 def statement_download_bytes(statement: pd.DataFrame) -> bytes:
     return statement.to_csv(index=True).encode("utf-8")
+
+
+def prepare_statement_for_display(
+    statement_name: str,
+    statement: pd.DataFrame,
+    show_detailed: bool,
+) -> pd.DataFrame:
+    source = statement.copy()
+
+    if not show_detailed:
+        preferred_rows = PRIMARY_STATEMENT_ROWS.get(statement_name, [])
+        available_rows = [
+            row for row in preferred_rows if row in source.index
+        ]
+
+        if available_rows:
+            source = source.loc[available_rows]
+
+    source.index.name = "Line Item"
+    display_table = source.reset_index()
+
+    raw_line_items = display_table["Line Item"].astype(str).tolist()
+    display_table["Line Item"] = [
+        humanize_statement_label(item)
+        for item in raw_line_items
+    ]
+
+    for column in display_table.columns:
+        if column == "Line Item":
+            continue
+
+        display_table[column] = [
+            format_statement_value(raw_item, value)
+            for raw_item, value in zip(
+                raw_line_items,
+                display_table[column],
+            )
+        ]
+
+    return display_table
 
 
 def render_financial_statement(
@@ -1294,30 +2348,23 @@ def render_financial_statement(
         )
         return
 
-    display_statement = statement.copy()
-    display_statement.index.name = "Line Item"
+    show_detailed = st.checkbox(
+        "Show detailed statement",
+        value=False,
+        key=(
+            f"show_detailed_{ticker}_{frequency}_"
+            f"{statement_name}"
+        ),
+    )
 
-    # Convert the index into a standard visible column. This is more reliable
-    # across Streamlit versions than displaying a styled DataFrame index.
-    display_table = display_statement.reset_index()
-
-    for column in display_table.columns:
-        if column == "Line Item":
-            display_table[column] = display_table[column].astype(str)
-        else:
-            display_table[column] = display_table[column].apply(
-                lambda value: (
-                    ""
-                    if pd.isna(value)
-                    else f"{float(value):,.0f}"
-                    if is_number(value)
-                    else str(value)
-                )
-            )
+    display_table = prepare_statement_for_display(
+        statement_name,
+        statement,
+        show_detailed,
+    )
 
     st.dataframe(
         display_table,
-        use_container_width=True,
         hide_index=True,
         height=650,
         column_config={
@@ -1328,9 +2375,15 @@ def render_financial_statement(
         },
     )
 
+    visible_description = (
+        "all available line items"
+        if show_detailed
+        else "key financial line items"
+    )
+
     st.caption(
-        f"{len(display_statement):,} line items · "
-        f"{len(display_statement.columns):,} reporting periods"
+        f"Showing {visible_description} · "
+        f"{len(statement.columns):,} reporting periods"
     )
 
     filename = (
@@ -1339,8 +2392,8 @@ def render_financial_statement(
     )
 
     st.download_button(
-        label=f"Download {statement_name} CSV",
-        data=statement_download_bytes(display_statement),
+        label=f"Download Full {statement_name} CSV",
+        data=statement_download_bytes(statement),
         file_name=filename,
         mime="text/csv",
         key=f"download_{ticker}_{frequency}_{statement_name}",
@@ -1368,29 +2421,100 @@ def render_financial_trends_chart(
     chart_data = trends[available_metrics].copy()
     chart_data.index = chart_data.index.strftime("%Y")
 
+    is_percent_chart = bool(percent_metrics)
+    is_eps_chart = all(
+        "EPS" in metric.upper()
+        for metric in available_metrics
+    )
+    is_currency_chart = not is_percent_chart and not is_eps_chart
+
+    if is_currency_chart:
+        plot_data = chart_data / 1_000_000_000
+        y_axis_title = "USD Billions"
+        hover_template = (
+            "<b>%{fullData.name}</b><br>"
+            "Fiscal Year: %{x}<br>"
+            "Value: $%{y:,.2f}B"
+            "<extra></extra>"
+        )
+    elif is_percent_chart:
+        plot_data = chart_data
+        y_axis_title = "Percent"
+        hover_template = (
+            "<b>%{fullData.name}</b><br>"
+            "Fiscal Year: %{x}<br>"
+            "Value: %{y:,.1f}%"
+            "<extra></extra>"
+        )
+    else:
+        plot_data = chart_data
+        y_axis_title = "EPS"
+        hover_template = (
+            "<b>%{fullData.name}</b><br>"
+            "Fiscal Year: %{x}<br>"
+            "Value: $%{y:,.2f}"
+            "<extra></extra>"
+        )
+
     fig = go.Figure()
 
     for metric in available_metrics:
         fig.add_trace(
             go.Scatter(
-                x=chart_data.index,
-                y=chart_data[metric],
+                x=plot_data.index,
+                y=plot_data[metric],
                 mode="lines+markers",
                 name=metric,
+                line={"width": 4},
+                marker={"size": 10},
+                hovertemplate=hover_template,
             )
         )
 
     fig.update_layout(
-        title=title,
+        title={"text": ""},
         xaxis_title="Fiscal Year",
-        yaxis_title="Percent" if percent_metrics else "Value",
+        yaxis_title=y_axis_title,
         hovermode="x unified",
-        legend_title_text="Metric",
-        height=420,
+        height=560,
+        margin={"l": 20, "r": 20, "t": 25, "b": 25},
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+            "font": {"size": 13},
+        },
+        font={"size": 14},
     )
 
-    if percent_metrics:
+    fig.update_xaxes(
+        type="category",
+        categoryorder="array",
+        categoryarray=list(plot_data.index),
+        tickmode="array",
+        tickvals=list(plot_data.index),
+        ticktext=list(plot_data.index),
+        showgrid=False,
+        tickfont={"size": 13},
+        title_font={"size": 14},
+    )
+
+    fig.update_yaxes(
+        separatethousands=True,
+        gridcolor="rgba(128, 128, 128, 0.18)",
+        zerolinecolor="rgba(128, 128, 128, 0.35)",
+        tickfont={"size": 13},
+        title_font={"size": 14},
+    )
+
+    if is_percent_chart:
         fig.update_yaxes(ticksuffix="%")
+    elif is_currency_chart:
+        fig.update_yaxes(tickprefix="$", ticksuffix="B")
+    else:
+        fig.update_yaxes(tickprefix="$")
 
     st.plotly_chart(fig, width="stretch")
 
@@ -1508,7 +2632,6 @@ def render_analyst_rating_summary(data: Mapping[str, Any]) -> None:
 
     st.dataframe(
         summary,
-        use_container_width=True,
         hide_index=True,
     )
 
@@ -1549,391 +2672,79 @@ def render_analyst_rating_summary(data: Mapping[str, Any]) -> None:
 
 def render_estimate_dataframe(
     title: str,
-    frame: pd.DataFrame,
+    dataframe: pd.DataFrame,
 ) -> None:
+    """
+    Display analyst estimate tables with finance-friendly formatting.
+    """
+
     st.subheader(title)
 
-    formatted = format_estimate_table(frame)
-
-    if formatted.empty:
-        st.info(f"No {title.lower()} data was available.")
+    if not isinstance(dataframe, pd.DataFrame) or dataframe.empty:
+        st.info(f"No {title.lower()} were available.")
         return
+
+    df = dataframe.copy()
+
+    if "avg" in df.columns:
+        df = df.rename(columns={"avg": "Average"})
+
+    if "low" in df.columns:
+        df = df.rename(columns={"low": "Low"})
+
+    if "high" in df.columns:
+        df = df.rename(columns={"high": "High"})
+
+    if "growth" in df.columns:
+        df = df.rename(columns={"growth": "Growth"})
+
+    money_keywords = (
+        "Average",
+        "Low",
+        "High",
+        "Revenue",
+        "EPS",
+        "yearAgoRevenue",
+        "yearAgoEps",
+    )
+
+    for column in df.columns:
+
+        if any(keyword.lower() in column.lower() for keyword in money_keywords):
+
+            def format_billions(value):
+                try:
+                    value = float(value)
+
+                    if abs(value) >= 1_000_000_000:
+                        return f"${value/1_000_000_000:.1f}B"
+
+                    if abs(value) >= 1_000_000:
+                        return f"${value/1_000_000:.1f}M"
+
+                    return f"${value:,.2f}"
+
+                except Exception:
+                    return value
+
+            df[column] = df[column].apply(format_billions)
+
+        elif column.lower() == "growth":
+
+            def format_growth(value):
+                try:
+                    return f"{float(value)*100:.1f}%"
+                except Exception:
+                    return value
+
+            df[column] = df[column].apply(format_growth)
 
     st.dataframe(
-        formatted,
-        use_container_width=True,
-        hide_index=True,
-    )
-
-
-
-def normalize_news(news_items: Any) -> list[dict[str, Any]]:
-    if news_items is None:
-        return []
-
-    if isinstance(news_items, Mapping):
-        for key in ("articles", "news", "items", "results"):
-            nested = news_items.get(key)
-            if isinstance(nested, list):
-                return [as_mapping(item) for item in nested]
-        return [dict(news_items)]
-
-    if isinstance(news_items, (list, tuple)):
-        return [as_mapping(item) for item in news_items]
-
-    return []
-
-
-def render_news_cards(news_items: Any) -> None:
-    articles = normalize_news(news_items)
-
-    if not articles:
-        st.info("No news articles were returned.")
-        return
-
-    for article in articles:
-        title = first_present(article, "title", "headline", default="Untitled article")
-        publisher = first_present(article, "publisher", "source", "provider", default="Unknown source")
-        link = first_present(article, "link", "url")
-        summary = first_present(article, "summary", "description", "snippet", default="")
-        published = first_present(
-            article,
-            "published",
-            "published_at",
-            "providerPublishTime",
-            "date",
-            default="",
-        )
-
-        if is_number(published):
-            try:
-                published = datetime.fromtimestamp(float(published)).strftime("%b %d, %Y %I:%M %p")
-            except (ValueError, OSError, OverflowError):
-                pass
-
-        if link:
-            st.markdown(f"### [{title}]({link})")
-        else:
-            st.markdown(f"### {title}")
-
-        metadata = f"**{publisher}**"
-        if published:
-            metadata += f" · {published}"
-        st.caption(metadata)
-
-        if summary:
-            st.write(summary)
-
-        st.divider()
-
-
-def comparison_to_dataframe(result: Any) -> pd.DataFrame:
-    def format_comparison_value(metric: str, value: Any) -> Any:
-        if value is None:
-            return "N/A"
-
-        if not is_number(value):
-            return value
-
-        numeric_value = float(value)
-        metric_lower = metric.lower()
-
-        currency_metrics = (
-            "price",
-            "market cap",
-            "enterprise value",
-            "revenue",
-            "net income",
-            "cash",
-            "debt",
-            "free cash flow",
-        )
-
-        percent_metrics = (
-            "margin",
-            "return",
-            "yield",
-            "growth",
-        )
-
-        ratio_metrics = (
-            "p/e",
-            "peg",
-            "ratio",
-            "return on equity",
-        )
-
-        if any(token in metric_lower for token in currency_metrics):
-            if metric_lower == "current price":
-                return format_currency(numeric_value)
-            return format_large_number(numeric_value)
-
-        if any(token in metric_lower for token in percent_metrics):
-            return format_percent(numeric_value)
-
-        if any(token in metric_lower for token in ratio_metrics):
-            return format_number(numeric_value)
-
-        return format_number(numeric_value)
-
-    if isinstance(result, pd.DataFrame):
-        dataframe = result.copy()
-
-    elif isinstance(result, Mapping):
-        result_dict = dict(result)
-
-        if result_dict and all(
-            isinstance(value, Mapping)
-            for value in result_dict.values()
-        ):
-            dataframe = pd.DataFrame(result_dict).T
-        else:
-            dataframe = pd.DataFrame(
-                [
-                    {"Metric": key, "Value": value}
-                    for key, value in result_dict.items()
-                ]
-            )
-
-    elif isinstance(result, (list, tuple)):
-        dataframe = pd.DataFrame(result)
-
-    else:
-        dataframe = pd.DataFrame({"Result": [result]})
-
-    if dataframe.empty:
-        return dataframe
-
-    dataframe = dataframe.reset_index()
-
-    if "index" in dataframe.columns:
-        dataframe = dataframe.rename(columns={"index": "Metric"})
-
-    if "Metric" not in dataframe.columns:
-        dataframe.insert(
-            0,
-            "Metric",
-            [f"Metric {index + 1}" for index in range(len(dataframe))],
-        )
-
-    for column in dataframe.columns:
-        if column == "Metric":
-            continue
-
-        dataframe[column] = [
-            format_comparison_value(metric, value)
-            for metric, value in zip(
-                dataframe["Metric"],
-                dataframe[column],
-            )
-        ]
-
-    return dataframe
-
-
-def extract_fair_value(result: Any) -> Optional[float]:
-    data = as_mapping(result)
-    keys = (
-        "fair_value_per_share",
-        "intrinsic_value_per_share",
-        "estimated_share_price",
-        "share_price",
-        "fair_value",
-        "intrinsic_value",
-        "dcf_price",
-    )
-
-    for key in keys:
-        value = data.get(key)
-        if is_number(value):
-            return float(value)
-
-    if is_number(result):
-        return float(result)
-
-    return None
-
-
-def render_dcf_result(
-    result: Any,
-    current_price: Number,
-    title: str = "Base-Case DCF",
-) -> None:
-    st.subheader(title)
-    result_map = as_mapping(result)
-    fair_value = extract_fair_value(result)
-    upside = calculate_upside(fair_value, current_price)
-
-    metric_columns = st.columns(3)
-    metric_columns[0].metric("DCF Fair Value", format_currency(fair_value))
-    metric_columns[1].metric("Current Price", format_currency(current_price))
-    metric_columns[2].metric(
-        "Upside / Downside",
-        "N/A" if upside is None else f"{upside:.2f}%",
-    )
-
-    if result_map:
-        display_rows = []
-        for key, value in result_map.items():
-            if isinstance(value, (Mapping, list, tuple, pd.DataFrame)):
-                continue
-            label = key.replace("_", " ").title()
-            if "rate" in key.lower() or "margin" in key.lower() or "upside" in key.lower():
-                displayed = format_percent(value)
-            elif any(token in key.lower() for token in ("value", "price", "cash", "debt", "equity")):
-                displayed = format_large_number(value)
-            else:
-                displayed = format_number(value) if is_number(value) else value
-            display_rows.append({"DCF Output": label, "Value": displayed})
-
-        if display_rows:
-            st.dataframe(pd.DataFrame(display_rows), use_container_width=True, hide_index=True)
-
-        projections = first_present(
-            result_map,
-            "projected_cash_flows",
-            "cash_flow_projections",
-            "projections",
-        )
-        if isinstance(projections, Mapping):
-            projection_df = pd.DataFrame(
-                {"Year": list(projections.keys()), "Projected FCF": list(projections.values())}
-            )
-            st.dataframe(projection_df, use_container_width=True, hide_index=True)
-        elif isinstance(projections, (list, tuple)):
-            st.dataframe(pd.DataFrame(projections), use_container_width=True)
-
-    elif result is not None:
-        st.write(result)
-
-
-def render_scenario_result(result: Any) -> None:
-    if not isinstance(result, Mapping):
-        render_text_result(result)
-        return
-
-    rows: list[dict[str, Any]] = []
-
-    for scenario_name, scenario_data in result.items():
-        if not isinstance(scenario_data, Mapping):
-            continue
-
-        fair_value = scenario_data.get("fair_value_per_share")
-
-        growth_rate = (
-            scenario_data.get("growth_rate")
-            or scenario_data.get("fcf_growth_rate")
-        )
-
-        discount_rate = (
-            scenario_data.get("discount_rate")
-            or scenario_data.get("wacc")
-        )
-
-        terminal_growth_rate = scenario_data.get(
-            "terminal_growth_rate"
-        )
-
-        projection_years = (
-            scenario_data.get("projection_years")
-            or scenario_data.get("forecast_years")
-            or scenario_data.get("years")
-        )
-
-        rows.append(
-            {
-                "Scenario": str(scenario_name).title(),
-                "Fair Value": fair_value,
-                "FCF Growth": growth_rate,
-                "WACC": discount_rate,
-                "Terminal Growth": terminal_growth_rate,
-                "Years": projection_years,
-            }
-        )
-
-    if not rows:
-        st.info("No DCF scenario results were returned.")
-        return
-
-    scenario_df = pd.DataFrame(rows)
-
-    scenario_order = {
-        "Bear": 0,
-        "Base": 1,
-        "Bull": 2,
-    }
-
-    scenario_df["_order"] = scenario_df["Scenario"].map(
-        scenario_order
-    ).fillna(99)
-
-    scenario_df = scenario_df.sort_values("_order").drop(
-        columns="_order"
-    )
-
-    scenario_df["Scenario"] = scenario_df["Scenario"].replace(
-        {
-            "Bear": "🔴 Bear",
-            "Base": "⚪ Base",
-            "Bull": "🟢 Bull",
-        }
-    )
-
-    scenario_df["Fair Value"] = scenario_df["Fair Value"].apply(
-        lambda value: (
-            f"${float(value):,.2f}"
-            if is_number(value)
-            else "N/A"
-        )
-    )
-
-    for column in (
-        "FCF Growth",
-        "WACC",
-        "Terminal Growth",
-    ):
-        scenario_df[column] = scenario_df[column].apply(
-            lambda value: (
-                f"{float(value) * 100:.1f}%"
-                if is_number(value)
-                else "N/A"
-            )
-        )
-
-    st.dataframe(
-        scenario_df,
+        df,
         width="stretch",
         hide_index=True,
+        height=min(320, 45 * (len(df) + 1)),
     )
-
-
-def render_sensitivity_result(result: Any) -> None:
-    if isinstance(result, pd.DataFrame):
-        st.dataframe(
-            result.style.format(lambda value: f"${value:,.2f}" if is_number(value) else value),
-            use_container_width=True,
-        )
-        return
-
-    if isinstance(result, Mapping):
-        data = dict(result)
-
-        if "table" in data:
-            table = data["table"]
-            if isinstance(table, pd.DataFrame):
-                st.dataframe(table, use_container_width=True)
-                return
-            if isinstance(table, (list, tuple, Mapping)):
-                st.dataframe(pd.DataFrame(table), use_container_width=True)
-                return
-
-        try:
-            st.dataframe(pd.DataFrame(data), use_container_width=True)
-        except ValueError:
-            st.json(data)
-        return
-
-    render_text_result(result)
 
 
 # =============================================================================
@@ -2246,8 +3057,8 @@ with trends_tab:
 with analyst_tab:
     st.header("Analyst Estimates and Price Targets")
     st.caption(
-        "Review Wall Street consensus ratings, target prices, "
-        "and forward revenue and earnings expectations."
+        "Review Wall Street consensus ratings, target-price expectations, "
+        "and forward revenue and earnings estimates."
     )
 
     try:
@@ -2259,9 +3070,11 @@ with analyst_tab:
 
     current_price = analyst_data.get("current_price")
     target_mean = analyst_data.get("target_mean")
+    target_median = analyst_data.get("target_median")
     target_high = analyst_data.get("target_high")
     target_low = analyst_data.get("target_low")
     analyst_count = analyst_data.get("analyst_count")
+    recommendation_key = analyst_data.get("recommendation_key")
 
     implied_upside = None
     if (
@@ -2275,76 +3088,209 @@ with analyst_tab:
             * 100
         )
 
+    normalized_recommendation = (
+        str(recommendation_key)
+        .replace("_", " ")
+        .replace("-", " ")
+        .strip()
+        .title()
+        if recommendation_key
+        else "N/A"
+    )
+
     metric_columns = st.columns(5)
 
-    with metric_columns[0]:
-        st.metric(
-            "Current Price",
-            format_currency(current_price),
-        )
+    metric_columns[0].metric(
+        "Current Price",
+        format_currency(current_price),
+    )
 
-    with metric_columns[1]:
-        st.metric(
-            "Average Target",
-            format_currency(target_mean),
-            None if implied_upside is None else f"{implied_upside:.1f}%",
-        )
+    metric_columns[1].metric(
+        "Mean Target",
+        format_currency(target_mean),
+        (
+            None
+            if implied_upside is None
+            else f"{implied_upside:+.1f}% implied"
+        ),
+    )
 
-    with metric_columns[2]:
-        st.metric(
-            "High Target",
-            format_currency(target_high),
-        )
+    metric_columns[2].metric(
+        "Median Target",
+        format_currency(target_median),
+    )
 
-    with metric_columns[3]:
-        st.metric(
-            "Low Target",
-            format_currency(target_low),
-        )
+    metric_columns[3].metric(
+        "Consensus",
+        normalized_recommendation,
+    )
 
-    with metric_columns[4]:
-        st.metric(
-            "Analyst Count",
+    metric_columns[4].metric(
+        "Analyst Coverage",
+        (
             "N/A"
             if not is_number(analyst_count)
-            else f"{int(float(analyst_count))}",
+            else f"{int(float(analyst_count))} analysts"
+        ),
+    )
+
+    if implied_upside is not None:
+        direction = "upside" if implied_upside >= 0 else "downside"
+        st.markdown(
+            f"**Wall Street takeaway:** The mean analyst target implies "
+            f"**{abs(implied_upside):.1f}% {direction}** from the current "
+            f"share price."
         )
 
-    if (
-        is_number(current_price)
-        and is_number(target_low)
-        and is_number(target_mean)
-        and is_number(target_high)
-    ):
+    valid_target_values = all(
+        is_number(value)
+        for value in (
+            current_price,
+            target_low,
+            target_mean,
+            target_high,
+        )
+    )
+
+    if valid_target_values:
+        current_value = float(current_price)
+        low_value = float(target_low)
+        mean_value = float(target_mean)
+        high_value = float(target_high)
+
+        median_value = (
+            float(target_median)
+            if is_number(target_median)
+            else mean_value
+        )
+
+        chart_min = min(low_value, current_value) * 0.94
+        chart_max = max(high_value, current_value) * 1.06
+
         target_chart = go.Figure()
 
         target_chart.add_trace(
-            go.Bar(
-                x=["Low Target", "Current Price", "Average Target", "High Target"],
-                y=[
-                    float(target_low),
-                    float(current_price),
-                    float(target_mean),
-                    float(target_high),
-                ],
-                text=[
-                    format_currency(target_low),
-                    format_currency(current_price),
-                    format_currency(target_mean),
-                    format_currency(target_high),
-                ],
-                textposition="auto",
+            go.Scatter(
+                x=[low_value, high_value],
+                y=["Analyst Range", "Analyst Range"],
+                mode="lines",
+                name="Target Range",
+                line={"width": 12},
+                hovertemplate=(
+                    "Analyst target range<br>"
+                    f"Low: {format_currency(low_value)}<br>"
+                    f"High: {format_currency(high_value)}"
+                    "<extra></extra>"
+                ),
             )
         )
 
-        target_chart.update_layout(
-            title="Price Target Range",
-            xaxis_title="Measure",
-            yaxis_title="Price",
-            height=420,
+        target_chart.add_trace(
+            go.Scatter(
+                x=[low_value, high_value],
+                y=["Analyst Range", "Analyst Range"],
+                mode="markers+text",
+                name="Low / High",
+                marker={"size": 16},
+                text=[
+                    f"Low {format_currency(low_value)}",
+                    f"High {format_currency(high_value)}",
+                ],
+                textposition=["bottom center", "bottom center"],
+                hovertemplate="%{text}<extra></extra>",
+            )
         )
 
-        st.plotly_chart(target_chart, width="stretch")
+        target_chart.add_trace(
+            go.Scatter(
+                x=[current_value],
+                y=["Analyst Range"],
+                mode="markers+text",
+                name="Current Price",
+                marker={
+                    "size": 20,
+                    "symbol": "diamond",
+                },
+                text=[f"Current {format_currency(current_value)}"],
+                textposition="top center",
+                hovertemplate="%{text}<extra></extra>",
+            )
+        )
+
+        target_chart.add_trace(
+            go.Scatter(
+                x=[mean_value],
+                y=["Analyst Range"],
+                mode="markers+text",
+                name="Mean Target",
+                marker={
+                    "size": 20,
+                    "symbol": "star",
+                },
+                text=[f"Mean {format_currency(mean_value)}"],
+                textposition="top center",
+                hovertemplate="%{text}<extra></extra>",
+            )
+        )
+
+        if abs(median_value - mean_value) > 0.01:
+            target_chart.add_trace(
+                go.Scatter(
+                    x=[median_value],
+                    y=["Analyst Range"],
+                    mode="markers+text",
+                    name="Median Target",
+                    marker={
+                        "size": 16,
+                        "symbol": "circle",
+                    },
+                    text=[f"Median {format_currency(median_value)}"],
+                    textposition="bottom center",
+                    hovertemplate="%{text}<extra></extra>",
+                )
+            )
+
+        target_chart.update_layout(
+            title={"text": ""},
+            xaxis_title="Share Price",
+            yaxis_title="",
+            height=350,
+            hovermode="closest",
+            margin={"l": 20, "r": 20, "t": 35, "b": 45},
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": 1.02,
+                "xanchor": "right",
+                "x": 1,
+            },
+            font={"size": 13},
+        )
+
+        target_chart.update_xaxes(
+            range=[chart_min, chart_max],
+            tickprefix="$",
+            tickformat=",.0f",
+            gridcolor="rgba(128, 128, 128, 0.18)",
+            zeroline=False,
+        )
+
+        target_chart.update_yaxes(
+            showticklabels=False,
+            showgrid=False,
+            zeroline=False,
+        )
+
+        st.markdown("### Price Target Range")
+        st.plotly_chart(
+            target_chart,
+            key=f"analyst_target_range_{main_ticker}",
+        )
+    else:
+        st.info(
+            "Complete analyst price-target data was not available "
+            "for this ticker."
+        )
 
     st.markdown("### Recommendation Consensus")
     render_analyst_rating_summary(analyst_data)
@@ -2360,13 +3306,19 @@ with analyst_tab:
     with estimate_tab_1:
         render_estimate_dataframe(
             "Revenue Estimates",
-            analyst_data.get("revenue_estimates", pd.DataFrame()),
+            analyst_data.get(
+                "revenue_estimates",
+                pd.DataFrame(),
+            ),
         )
 
     with estimate_tab_2:
         render_estimate_dataframe(
             "Earnings Estimates",
-            analyst_data.get("earnings_estimates", pd.DataFrame()),
+            analyst_data.get(
+                "earnings_estimates",
+                pd.DataFrame(),
+            ),
         )
 
     with estimate_tab_3:
@@ -2376,10 +3328,15 @@ with analyst_tab:
         )
 
         if (
-            not isinstance(recommendation_history, pd.DataFrame)
+            not isinstance(
+                recommendation_history,
+                pd.DataFrame,
+            )
             or recommendation_history.empty
         ):
-            st.info("No recommendation history was available.")
+            st.info(
+                "No recommendation history was available."
+            )
         else:
             history = recommendation_history.copy()
 
@@ -2390,8 +3347,9 @@ with analyst_tab:
 
             st.dataframe(
                 history,
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
+                height=450,
             )
 
 
@@ -2442,14 +3400,14 @@ with news_tab:
                 "Fetch Company News",
                 type="primary",
                 key="fetch_company_news",
-                use_container_width=True,
+                width="stretch",
             )
 
         with ai_news_button:
             analyze_news_button = st.button(
                 "Run AI News Analysis",
                 key="run_ai_news_analysis",
-                use_container_width=True,
+                width="stretch",
             )
 
         if fetch_news:
@@ -2667,7 +3625,7 @@ with comparison_tab:
             if st.session_state.comparison_result is not None:
                 st.dataframe(
                     comparison_to_dataframe(st.session_state.comparison_result),
-                    use_container_width=True,
+                    width="stretch",
                 )
 
         with ai_comparison_tab:
@@ -2890,6 +3848,15 @@ with about_tab:
 """
         )
 
+        st.subheader("Platform Highlights")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        col1.metric("Modules", "9")
+        col2.metric("AI Reports", "3")
+        col3.metric("DCF Models", "3")
+        col4.metric("Exports", "CSV")
+
     with stack_column:
         st.subheader("Technology Stack")
         technology_stack = pd.DataFrame(
@@ -2914,8 +3881,18 @@ with about_tab:
         )
         st.dataframe(
             technology_stack,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
+        )
+
+        st.subheader("Data Sources")
+
+        st.markdown(
+            """
+- **Yahoo Finance (yfinance)** — Market prices, company fundamentals, financial statements, analyst estimates, and historical pricing
+- **OpenAI API** — AI-generated equity research, investment recommendations, and news intelligence
+- **Plotly** — Interactive financial charts and visualizations
+"""
         )
 
         st.subheader("Analytical Methods")
@@ -2950,6 +3927,20 @@ with about_tab:
             "Transforms raw data into standardized metrics, growth rates, "
             "financial scores, trend charts, comparisons, and valuations."
         )
+
+    st.divider()
+
+    st.subheader("Important Notes")
+
+    st.info(
+        """
+Finance AI Research Terminal is designed as an educational and equity research platform.
+
+Market data is provided by external sources and may occasionally be delayed or incomplete.
+
+AI-generated research should complement—not replace—independent financial analysis and investment due diligence.
+"""
+    )
 
     with methodology_three:
         st.markdown("#### 3. AI Interpretation")
