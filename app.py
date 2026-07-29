@@ -784,6 +784,19 @@ def get_financial_trends(ticker: str) -> pd.DataFrame:
     )
 
     trends = trends.sort_index()
+
+    # Remove years where all displayed trend metrics are missing
+    trends = trends.dropna(
+        subset=[
+            "Revenue",
+            "Net Income",
+            "EBITDA",
+            "Diluted EPS",
+            "Free Cash Flow",
+        ],
+        how="all",
+    )
+
     return trends
 
 
@@ -2308,6 +2321,9 @@ def prepare_statement_for_display(
 
         if available_rows:
             source = source.loc[available_rows]
+
+    # Remove reporting periods where every displayed line item is missing
+    source = source.dropna(axis=1, how="all")
 
     source.index.name = "Line Item"
     display_table = source.reset_index()
