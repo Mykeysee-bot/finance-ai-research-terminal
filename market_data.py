@@ -482,6 +482,27 @@ def get_stock_data(ticker_symbol: str) -> Dict[str, Any]:
             cash_per_share = total_cash / shares
 
     market_cap = _safe_number(info.get("marketCap"))
+
+    if market_cap is None:
+        try:
+            market_cap = _safe_number(fast_info["market_cap"])
+        except Exception:
+            market_cap = None
+
+    if market_cap is None and current_price is not None:
+        shares_outstanding = _safe_number(
+            _first_available(
+                info,
+                (
+                    "sharesOutstanding",
+                    "impliedSharesOutstanding",
+                ),
+            )
+        )
+
+        if shares_outstanding not in (None, 0):
+            market_cap = current_price * shares_outstanding
+
     price_to_book = _safe_number(info.get("priceToBook"))
 
     if (
