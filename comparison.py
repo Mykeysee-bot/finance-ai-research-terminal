@@ -1,10 +1,16 @@
 from typing import Any, Dict
 
+import pandas as pd
+
 
 def compare_companies(
     first_company: Dict[str, Any],
     second_company: Dict[str, Any],
 ) -> Dict[str, Dict[str, Any]]:
+    """
+    Build a nested dictionary comparing two companies across key metrics.
+    """
+
     return {
         "Current Price": {
             first_company["ticker"]: first_company.get("current_price"),
@@ -67,3 +73,24 @@ def compare_companies(
             second_company["ticker"]: second_company.get("one_year_return"),
         },
     }
+
+
+def comparison_to_dataframe(
+    comparison: Dict[str, Dict[str, Any]],
+) -> pd.DataFrame:
+    """
+    Convert the comparison dictionary into a DataFrame suitable for
+    displaying in Streamlit.
+    """
+
+    if not comparison:
+        return pd.DataFrame()
+
+    dataframe = pd.DataFrame.from_dict(
+        comparison,
+        orient="index",
+    )
+
+    dataframe.index.name = "Metric"
+
+    return dataframe.reset_index()
