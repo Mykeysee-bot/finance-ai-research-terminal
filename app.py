@@ -3624,7 +3624,9 @@ with comparison_tab:
         with raw_comparison_tab:
             if st.session_state.comparison_result is not None:
                 st.dataframe(
-                    comparison_to_dataframe(st.session_state.comparison_result),
+                    MODULES["comparison"].comparison_to_dataframe(
+                        st.session_state.comparison_result
+                    ),
                     width="stretch",
                 )
 
