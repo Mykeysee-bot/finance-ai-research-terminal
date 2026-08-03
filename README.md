@@ -1,125 +1,199 @@
-# Finance AI Research Terminal
+# 📈 Finance AI Research Terminal
 
-An AI-powered public-equity research, analytics, and valuation platform built with Python and Streamlit.
+> An AI-powered equity research platform that analyzes public companies using financial statements, valuation models, analyst estimates, news intelligence, peer comparison, and AI-generated investment research.
 
-## Overview
+![Finance AI Research Terminal](images/dashboard.png)
 
-The Finance AI Research Terminal combines market data, company fundamentals, financial statements, analyst estimates, news intelligence, peer comparison, financial scoring, investment recommendations, and discounted cash flow valuation in one interactive application.
+---
 
-Users can enter a public-company ticker and review both quantitative financial analysis and AI-assisted qualitative research.
+## 🚀 Live Demo
 
-## Core Features
+**Application:** https://finance-ai-research-terminal.streamlit.app/ 
 
-- Company overview with market data and valuation metrics
-- Financial scorecard across profitability, balance sheet, valuation, and market performance
-- Annual and quarterly financial statements
-- Revenue, earnings, EBITDA, EPS, margin, and free-cash-flow trend analysis
-- Analyst price targets, recommendation consensus, and forward estimates
-- AI-generated company research
-- News intelligence and sentiment analysis
-- Investment recommendation engine
-- Peer-company comparison
-- Discounted cash flow valuation
-- DCF scenarios and sensitivity analysis
-- CSV exports for financial statements and trend data
+**GitHub Repository:** https://github.com/Mykeysee-bot/finance-ai-research-terminal
 
-## Technology Stack
+---
 
-- Python
-- Streamlit
-- yfinance
-- Pandas
-- Plotly
-- OpenAI API
-- python-dotenv
+# Overview
 
-## Project Structure
+Finance AI Research Terminal is a Python and Streamlit application designed to provide institutional-style research for publicly traded companies.
+
+Instead of gathering information from multiple websites, the application combines market data, financial statements, valuation analysis, analyst estimates, AI research, and news into a single interactive dashboard.
+
+Users can also generate professional multi-page PDF equity research reports.
+
+---
+
+# Features
+
+- 📊 Company Overview
+- 📈 Annual & Quarterly Financial Statements
+- 📉 Multi-Year Financial Trend Analysis
+- 🤖 AI Company Research
+- 📰 AI News Intelligence
+- 💰 Discounted Cash Flow (DCF) Valuation
+- 📋 DCF Scenarios & Sensitivity Analysis
+- 📑 Analyst Estimates & Price Targets
+- ⚖️ Company Comparison
+- ⭐ Financial Scorecard
+- 📄 Professional PDF Research Report Export
+
+---
+
+# Dashboard
+
+### Company Overview
+
+![Dashboard](images/dashboard.png)
+
+---
+
+### Financial Statements
+
+![Financial Statements](images/financial-statements.png)
+
+---
+
+### Financial Trends
+
+![Financial Trends](images/financial-trends.png)
+
+---
+
+### Company Comparison
+
+![Comparison](images/company-comparison.png)
+
+---
+
+### DCF Valuation
+
+![DCF](images/dcf-valuation.png)
+
+---
+
+# Technology Stack
+
+| Category | Technology |
+|-----------|------------|
+| Language | Python |
+| Frontend | Streamlit |
+| Data Analysis | Pandas |
+| Visualization | Plotly |
+| Market Data | yfinance |
+| AI | OpenAI API |
+| PDF Generation | ReportLab |
+| Environment | python-dotenv |
+
+---
+
+# Architecture
 
 ```text
-app.py
-ai_analysis.py
-ai_news.py
-investment_recommendation.py
-comparison.py
-ai_comparison.py
-dcf_model.py
-dcf_scenarios.py
-dcf_sensitivity.py
-financial_score.py
-market_data.py
-company_news.py
-requirements.txt
-README.md
-.env
+                 User
+
+                   │
+
+                   ▼
+
+      Finance AI Research Terminal
+
+                   │
+
+ ┌─────────────────┼─────────────────┐
+ │                 │                 │
+ ▼                 ▼                 ▼
+
+Market Data     AI Analysis     News Intelligence
+
+ │                 │                 │
+
+ └──────────────┬──┴─────────────────┘
+                │
+                ▼
+
+      Financial Models & Scoring
+
+                │
+                ▼
+
+         Interactive Dashboard
+
+                │
+                ▼
+
+     Professional PDF Research Report
 ```
 
-## Local Installation
+---
 
-### 1. Clone or download the project
+# Installation
+
+Clone the repository:
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
-cd <YOUR_PROJECT_FOLDER>
+git clone https://github.com/YOUR_USERNAME/finance-ai-agent.git
+cd finance-ai-agent
 ```
 
-### 2. Create a virtual environment
+Create a virtual environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Install dependencies
+Install dependencies:
 
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-### 4. Add environment variables
-
-Create a `.env` file in the project folder:
+Create a `.env` file:
 
 ```text
 OPENAI_API_KEY=your_api_key_here
 ```
 
-Do not upload the `.env` file to GitHub.
-
-### 5. Run the application
+Run the application:
 
 ```bash
-python -m streamlit run app.py
+streamlit run app.py
 ```
 
-## Deployment
+---
 
-This project can be deployed with Streamlit Community Cloud.
+# Project Highlights
 
-1. Upload the project to GitHub.
-2. Open Streamlit Community Cloud.
-3. Connect the GitHub repository.
-4. Select `app.py` as the main file.
-5. Add `OPENAI_API_KEY` under application secrets.
-6. Deploy the application.
+- Built an AI-powered public equity research platform using Python and Streamlit.
+- Integrated market data, financial statements, analyst estimates, valuation models, and AI-generated research into a unified workflow.
+- Developed interactive dashboards with Plotly visualizations and downloadable CSV exports.
+- Implemented discounted cash flow valuation with scenario and sensitivity analysis.
+- Generated professional multi-page PDF research reports using ReportLab.
 
-## Analytical Methodology
+---
 
-### Data Collection
+# Future Improvements
 
-The application retrieves market prices, company fundamentals, financial statements, analyst estimates, and company news from external data providers.
+- Portfolio tracking
+- SEC filing analysis
+- Earnings transcript summarization
+- Insider trading analysis
+- Watchlists
+- Multi-company portfolio analytics
 
-### Financial Analysis
+---
 
-Raw data is transformed into financial ratios, growth rates, scorecards, trend charts, peer comparisons, and valuation outputs.
+# Disclaimer
 
-### AI Interpretation
+This application is intended for educational and research purposes only.
 
-AI modules summarize company performance, identify risks and catalysts, analyze news, and generate structured investment commentary.
+Market data may be delayed or incomplete. AI-generated analysis may contain inaccuracies and should not be considered investment, legal, or financial advice. Always conduct independent research before making investment decisions.
 
-## Resume Description
+---
 
-> Built an AI-powered public-equity research platform using Python and Streamlit that integrates market data, financial statements, multi-year trend analysis, analyst estimates, news intelligence, peer comparisons, financial scoring, investment recommendations, and DCF valuation for publicly traded companies.
+## Author
 
-## Disclaimer
+**Michael Corrigan**
 
-Market and company data may be delayed, incomplete, or differently defined across providers. Analyst estimates may change frequently. AI-generated research may contain errors and is not personalized investment advice.
+Finance Student | AI Builder | Python Developer

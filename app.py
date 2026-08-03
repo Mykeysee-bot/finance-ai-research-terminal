@@ -17,6 +17,7 @@ import yfinance as yf
 # PAGE CONFIGURATION
 # =============================================================================
 
+from pdf_report import generate_research_report_pdf
 st.set_page_config(
     page_title="Finance AI Research Terminal",
     page_icon="📈",
@@ -1998,7 +1999,7 @@ def render_price_chart(history: pd.DataFrame, ticker: str) -> None:
         },
     )
 
-    st.plotly_chart(figure, width="stretch")
+    st.plotly_chart(figure, use_container_width=True)
 
 
 def render_financial_overview(data: Mapping[str, Any]) -> None:
@@ -2532,7 +2533,7 @@ def render_financial_trends_chart(
     else:
         fig.update_yaxes(tickprefix="$")
 
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def render_growth_metrics(trends: pd.DataFrame) -> None:
@@ -2683,7 +2684,7 @@ def render_analyst_rating_summary(data: Mapping[str, Any]) -> None:
                 yaxis_title="Number of Analysts",
                 height=400,
             )
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
 
 def render_estimate_dataframe(
@@ -2920,6 +2921,146 @@ with overview_tab:
 
         st.subheader("Financial Overview")
         render_financial_overview(company_data)
+
+        st.divider()
+        st.subheader("Export Research Report")
+        st.caption(
+            "Generate a professional PDF containing company data, "
+            "financial metrics, analyst estimates, AI research, "
+            "recommendations, financial trends, and available DCF results."
+        )
+
+        if st.button(
+            "Prepare Research Report PDF",
+            key=f"prepare_pdf_report_{main_ticker}",
+        ):
+            try:
+                with st.spinner(
+                    f"Preparing the {main_ticker} research report..."
+                ):
+                    report_analyst_data = get_analyst_estimates(
+                        main_ticker
+                    )
+
+                    report_financial_trends = get_financial_trends(
+                        main_ticker
+                    )
+
+                    raw_recommendation = (
+                        st.session_state.investment_recommendation
+                    )
+                    report_recommendation = as_mapping(
+                        raw_recommendation
+                    )
+
+                    if (
+                        not report_recommendation
+                        and raw_recommendation is not None
+                    ):
+                        report_recommendation = {
+                            "summary": str(raw_recommendation)
+                        }
+
+                    raw_dcf_result = st.session_state.get(
+                        "dcf_result"
+                    )
+                    raw_dcf_company = st.session_state.get(
+                        "dcf_company_data"
+                    )
+
+                    report_dcf_data = {}
+
+                    if isinstance(raw_dcf_company, Mapping):
+                        report_dcf_ticker = clean_ticker(
+                            str(
+                                first_present(
+                                    raw_dcf_company,
+                                    "ticker",
+                                    "symbol",
+                                    default="",
+                                )
+                            )
+                        )
+
+                        if report_dcf_ticker == main_ticker:
+                            report_dcf_data = as_mapping(
+                                raw_dcf_result
+                            )
+
+                    raw_ai_report = st.session_state.get(
+                        "ai_report"
+                    )
+                    raw_news_report = st.session_state.get(
+                        "ai_news_report"
+                    )
+
+                    report_ai_text = (
+                        None
+                        if raw_ai_report is None
+                        else str(raw_ai_report)
+                    )
+
+                    report_news_text = (
+                        None
+                        if raw_news_report is None
+                        else str(raw_news_report)
+                    )
+
+                    report_pdf = generate_research_report_pdf(
+                        ticker=main_ticker,
+                        company_data=company_data,
+                        scores=scores or {},
+                        analyst_data=report_analyst_data,
+                        recommendation=report_recommendation,
+                        dcf_data=report_dcf_data,
+                        financial_trends=report_financial_trends,
+                        ai_research=report_ai_text,
+                        news_summary=report_news_text,
+                    )
+
+                    st.session_state[
+                        "research_report_pdf"
+                    ] = report_pdf
+
+                    st.session_state[
+                        "research_report_ticker"
+                    ] = main_ticker
+
+                st.success(
+                    f"{main_ticker} research report is ready."
+                )
+
+            except Exception as exc:
+                st.session_state[
+                    "research_report_pdf"
+                ] = None
+
+                st.error(
+                    f"Could not prepare the PDF report: {exc}"
+                )
+
+        saved_report = st.session_state.get(
+            "research_report_pdf"
+        )
+        saved_report_ticker = st.session_state.get(
+            "research_report_ticker"
+        )
+
+        if (
+            isinstance(saved_report, bytes)
+            and saved_report
+            and saved_report_ticker == main_ticker
+        ):
+            st.download_button(
+                label="Download Full Research Report PDF",
+                data=saved_report,
+                file_name=(
+                    f"{main_ticker}_finance_ai_research_report.pdf"
+                ),
+                mime="application/pdf",
+                key=f"download_pdf_report_{main_ticker}",
+                type="primary",
+            )
 
     else:
         st.info("Click **Analyze Company** to load the full overview.")
