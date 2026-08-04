@@ -2,7 +2,22 @@
 
 > An AI-powered equity research platform that analyzes public companies using financial statements, valuation models, analyst estimates, news intelligence, peer comparison, and AI-generated investment research.
 
-![Finance AI Research Terminal](images/dashboard.png)
+## 📸 Application Preview
+
+### Company Overview
+![Company Overview](images/dashboard.png)
+
+### Financial Statements
+![Financial Statements](images/financial-statements.png)
+
+### Financial Trends
+![Financial Trends](images/financial-trends.png)
+
+### Analyst Estimates
+![Analyst Estimates](images/analyst-estimates.png)
+
+### DCF Valuation
+![DCF Valuation](images/dcf.png)
 
 ---
 
@@ -10,7 +25,7 @@
 
 **Application:** https://finance-ai-research-terminal.streamlit.app/ 
 
-**GitHub Repository:** https://github.com/Mykeysee-bot/finance-ai-research-terminal
+**GitHub Repository:** https://github.com/michaelcorrigan2/finance-ai-research-terminal
 
 ---
 
